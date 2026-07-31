@@ -1,0 +1,705 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A household skills board: track the practical things kids need to learn, gated by age, signed off when they can actually do it.">
+<meta name="theme-color" content="#0D2135">
+<meta name="color-scheme" content="dark">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Skills Board">
+<title>Skills Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --ink:#0D2135;
+  --ink-2:#14314A;
+  --ink-3:#1B3D5A;
+  --line:rgba(197,224,240,.16);
+  --line-hard:rgba(197,224,240,.34);
+  --paper:#E9F1F7;
+  --muted:#8AA7BE;
+  --muted-dim:#5E7C94;
+  --chalk:#F2C14E;
+  --pencil:#F0705A;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --cond:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --cell:32px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--ink);
+  background-image:
+    linear-gradient(var(--line) 1px,transparent 1px),
+    linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:28px 28px;
+  color:var(--paper);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  padding:0 0 80px;
+}
+a{color:var(--chalk)}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+:focus-visible{outline:2px solid var(--chalk);outline-offset:2px}
+
+.wrap{max-width:1120px;margin:0 auto;padding:0 18px}
+
+/* ---------- title block ---------- */
+header{border-bottom:1px solid var(--line-hard);margin-bottom:22px;padding:26px 0 0}
+.masthead{display:flex;flex-wrap:wrap;align-items:flex-end;gap:20px;justify-content:space-between;padding-bottom:18px}
+h1{
+  font-family:var(--cond);font-weight:600;font-size:44px;line-height:.94;
+  letter-spacing:.02em;text-transform:uppercase;margin:0;
+}
+h1 span{display:block;font-size:13px;letter-spacing:.34em;color:var(--muted);font-weight:500;margin-bottom:7px}
+.titleblock{display:grid;grid-template-columns:repeat(4,minmax(58px,auto));border:1px solid var(--line-hard)}
+.tb{padding:7px 12px;border-right:1px solid var(--line-hard)}
+.tb:last-child{border-right:0}
+.tb b{display:block;font-family:var(--mono);font-size:17px;font-weight:500;color:var(--chalk);line-height:1.2}
+.tb i{font-style:normal;font-family:var(--cond);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-dim)}
+
+/* ---------- toolbar ---------- */
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:0 0 16px}
+.btn{
+  font-family:var(--cond);font-size:14px;letter-spacing:.12em;text-transform:uppercase;
+  border:1px solid var(--line-hard);padding:6px 13px;color:var(--paper);
+  transition:background .12s,border-color .12s;
+}
+.btn:hover{background:var(--ink-2);border-color:var(--paper)}
+.btn.on{background:var(--chalk);border-color:var(--chalk);color:var(--ink)}
+.spacer{flex:1}
+select,input[type=text],input[type=date],input[type=number],textarea{
+  font-family:var(--sans);font-size:14px;background:var(--ink-2);color:var(--paper);
+  border:1px solid var(--line-hard);padding:6px 9px;
+}
+select{font-family:var(--cond);letter-spacing:.06em;text-transform:uppercase;font-size:14px}
+
+/* ---------- matrix ---------- */
+.legend{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--muted);padding:0 0 12px;font-family:var(--mono)}
+.legend i{display:inline-block;width:13px;height:13px;border:1px solid var(--line-hard);vertical-align:-2px;margin-right:6px}
+.legend .l2{background:var(--chalk);border-color:var(--chalk)}
+.legend .l1{background:linear-gradient(135deg,var(--chalk) 0 50%,transparent 50% 100%)}
+.legend .l0{border-style:dashed;opacity:.5}
+
+.matrix{border:1px solid var(--line-hard);background:rgba(13,33,53,.86);overflow-x:auto}
+.grid{min-width:100%;display:grid;width:max-content;min-width:100%}
+.hdr{
+  position:sticky;top:0;z-index:3;background:var(--ink-3);
+  border-bottom:1px solid var(--line-hard);
+}
+.hdr .kid{writing-mode:horizontal-tb;text-align:center;padding:8px 0}
+.kid-name{font-family:var(--cond);font-size:13px;letter-spacing:.08em;text-transform:uppercase;line-height:1}
+.kid-age{font-family:var(--mono);font-size:10px;color:var(--muted);display:block;margin-top:2px}
+.rowlabel{padding:7px 12px 7px 0;display:flex;align-items:baseline;gap:9px;min-width:0}
+.hdr .rowlabel{padding-left:12px;font-family:var(--cond);letter-spacing:.18em;text-transform:uppercase;font-size:12px;color:var(--muted)}
+.skname{font-size:14px;line-height:1.25}
+.sknote{display:block;font-size:12px;color:var(--muted-dim);line-height:1.3;margin-top:1px}
+.hidebtn{
+  flex:0 0 auto;margin-left:auto;align-self:center;
+  font-family:var(--cond);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted-dim);padding:2px 6px;border:1px solid transparent;opacity:0;
+}
+.rowlabel:hover .hidebtn,.hidebtn:focus-visible{opacity:1}
+.hidebtn:hover{color:var(--pencil);border-color:var(--line-hard)}
+.r.hid .rowlabel .skname,.r.hid .rowlabel .sknote,.r.hid .agetag{opacity:.38;text-decoration:line-through;text-decoration-color:var(--muted-dim)}
+.r.hid .cellwrap{opacity:.3}
+.r.hid .hidebtn{opacity:1;color:var(--chalk)}
+.r.hid .hidebtn:hover{color:var(--chalk);border-color:var(--chalk)}
+.btn:disabled{opacity:.35;cursor:default}
+.btn:disabled:hover{background:none;border-color:var(--line-hard)}
+@media (hover:none){.hidebtn{opacity:.6}}
+.agetag{font-family:var(--mono);font-size:11px;color:var(--muted-dim);flex:0 0 auto;padding-top:2px}
+
+.domrow{
+  grid-column:1/-1;display:flex;align-items:center;gap:12px;
+  padding:14px 12px 6px;border-top:1px solid var(--line-hard);
+  background:linear-gradient(90deg,rgba(27,61,90,.7),transparent);
+}
+.domrow:first-child{border-top:0}
+.domcode{font-family:var(--mono);font-size:11px;color:var(--chalk);letter-spacing:.1em}
+.domname{font-family:var(--cond);font-size:19px;letter-spacing:.16em;text-transform:uppercase}
+.domcount{font-family:var(--mono);font-size:11px;color:var(--muted-dim);margin-left:auto}
+
+.r{display:contents}
+.r > *{border-top:1px solid var(--line)}
+.cellwrap{display:flex;align-items:center;justify-content:center;padding:4px 0}
+.cell{
+  width:20px;height:20px;border:1px solid var(--line-hard);border-radius:1px;
+  transition:transform .1s ease,background .12s ease;
+}
+.cell:hover{transform:scale(1.22);border-color:var(--paper)}
+.cell.s1{background:linear-gradient(135deg,var(--chalk) 0 50%,transparent 50% 100%);border-color:var(--chalk)}
+.cell.s2{background:var(--chalk);border-color:var(--chalk)}
+.cell.locked{border-style:dashed;opacity:.28;cursor:not-allowed}
+.cell.locked:hover{transform:none;border-color:var(--line-hard)}
+.cell.due{box-shadow:inset 0 0 0 1px var(--pencil);border-color:var(--pencil)}
+
+/* ---------- queue ---------- */
+h2{font-family:var(--cond);font-size:22px;letter-spacing:.2em;text-transform:uppercase;margin:34px 0 4px;font-weight:600}
+.sub{color:var(--muted);font-size:13px;margin:0 0 16px}
+.queues{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(268px,1fr))}
+.q{border:1px solid var(--line-hard);background:rgba(20,49,74,.6)}
+.q header{border:0;margin:0;padding:11px 14px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:9px}
+.q h3{font-family:var(--cond);font-size:19px;letter-spacing:.1em;text-transform:uppercase;margin:0;font-weight:600}
+.q .meta{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:auto}
+.qitem{display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--line);align-items:flex-start}
+.qitem:first-of-type{border-top:0}
+.qdot{flex:0 0 auto;width:14px;height:14px;border:1px solid var(--line-hard);margin-top:2px}
+.qdot:hover{border-color:var(--chalk)}
+.qtext{font-size:13.5px;line-height:1.3}
+.qtext em{font-style:normal;display:block;color:var(--muted-dim);font-size:12px}
+.qwait{font-family:var(--mono);font-size:10.5px;color:var(--pencil);margin-left:auto;flex:0 0 auto;padding-top:2px}
+.bars{padding:10px 14px 13px}
+.bar-row{display:flex;align-items:center;gap:8px;margin-top:4px;font-family:var(--mono);font-size:10px;color:var(--muted-dim)}
+.bar-row .t{flex:0 0 34px;letter-spacing:.06em}
+.track{flex:1;height:5px;background:rgba(197,224,240,.12)}
+.fill{height:100%;background:var(--chalk)}
+
+/* ---------- empty / panels ---------- */
+.empty{border:1px dashed var(--line-hard);padding:40px 26px;text-align:center}
+.empty p{color:var(--muted);max-width:44ch;margin:8px auto 18px}
+.panel{border:1px solid var(--line-hard);background:var(--ink-2);padding:16px;margin-bottom:18px}
+.panel h3{font-family:var(--cond);font-size:16px;letter-spacing:.18em;text-transform:uppercase;margin:0 0 12px;font-weight:600}
+.fields{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.kidchip{display:flex;align-items:center;gap:10px;border:1px solid var(--line);padding:6px 10px;margin-bottom:6px}
+.kidchip .nm{font-family:var(--cond);font-size:17px;letter-spacing:.06em;text-transform:uppercase}
+.kidchip .dt{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.kidchip button{font-family:var(--mono);font-size:11px;color:var(--muted-dim);margin-left:auto}
+.kidchip button:hover{color:var(--pencil)}
+.kidchip button.warn{color:var(--pencil);font-weight:500}
+.msg{font-size:12.5px;color:var(--pencil)}
+.hint{font-size:12.5px;color:var(--muted-dim);margin-top:10px;line-height:1.5}
+.hidden{display:none!important}
+
+footer{border-top:1px solid var(--line);margin-top:40px;padding-top:14px;font-family:var(--mono);font-size:11px;color:var(--muted-dim);display:flex;flex-wrap:wrap;gap:14px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:640px){
+  h1{font-size:32px}
+  .titleblock{grid-template-columns:repeat(2,1fr);width:100%}
+  .tb{border-bottom:1px solid var(--line-hard)}
+  .sknote{display:none}
+  :root{--cell:30px}
+}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="masthead">
+    <h1><span>Household</span>Skills Board</h1>
+    <div class="titleblock">
+      <div class="tb"><b id="tbKids">0</b><i>Kids</i></div>
+      <div class="tb"><b id="tbSkills">0</b><i>Skills</i></div>
+      <div class="tb"><b id="tbDone">0</b><i>Signed off</i></div>
+      <div class="tb"><b id="tbDue">0</b><i>Ready now</i></div>
+    </div>
+  </div>
+</header>
+
+<div class="bar">
+  <select id="fDomain"><option value="">All areas</option></select>
+  <button class="btn" id="fEligible">Age-ready only</button>
+  <button class="btn" id="fOpen">Hide signed off</button>
+  <button class="btn" id="bHidden">Hidden</button>
+  <span class="spacer"></span>
+  <button class="btn" id="bKids">Kids</button>
+  <button class="btn" id="bAdd">Add skill</button>
+  <button class="btn" id="bExport">Export</button>
+  <button class="btn" id="bImport">Import</button>
+  <input type="file" id="fileIn" accept="application/json" class="hidden">
+</div>
+
+<div class="panel hidden" id="pKids">
+  <h3>Kids</h3>
+  <div id="kidList"></div>
+  <div class="fields" style="margin-top:12px">
+    <input type="text" id="kName" placeholder="Name" size="14">
+    <input type="date" id="kDob">
+    <button class="btn" id="kAdd">Add child</button>
+    <span id="kMsg" class="msg"></span>
+  </div>
+  <p class="hint">Birthdate drives the age gates. Nothing leaves this file — data is stored in your browser, and Export gives you a JSON backup.</p>
+</div>
+
+<div class="panel hidden" id="pAdd">
+  <h3>Add your own skill</h3>
+  <div class="fields">
+    <select id="cDomain"></select>
+    <input type="number" id="cAge" min="3" max="18" value="10" style="width:64px" aria-label="Start age">
+    <input type="text" id="cName" placeholder="Skill" size="24">
+    <input type="text" id="cNote" placeholder="What counts as done" size="30">
+    <button class="btn" id="cAdd">Add</button>
+    <span id="cMsg" class="msg"></span>
+  </div>
+</div>
+
+<div class="legend">
+  <span><i class="l0"></i>Too young</span>
+  <span><i></i>Not started</span>
+  <span><i class="l1"></i>Working on it</span>
+  <span><i class="l2"></i>Signed off</span>
+  <span style="color:var(--pencil)"><i style="border-color:var(--pencil)"></i>Overdue</span>
+</div>
+
+<div class="matrix"><div class="grid" id="grid"></div></div>
+
+<h2>Up next</h2>
+<p class="sub">Oldest unmet skill first. These are the ones each kid is already old enough for.</p>
+<div class="queues" id="queues"></div>
+
+<footer>
+  <span>Click a box to cycle: not started &rarr; working on it &rarr; signed off.</span>
+  <span>Hover a skill to hide it.</span>
+  <span id="saveState">Saved locally</span>
+</footer>
+</div>
+
+<script>
+/* ============================ catalog ============================ */
+const DOMAINS = [
+ {k:"KIT",n:"Kitchen &amp; food",s:[
+  [9,"Knife skills: claw grip, dice an onion","Even dice, fingers curled, damp towel under the board"],
+  [10,"Mise en place before the burner goes on","Reads the whole recipe, preps everything, then cooks"],
+  [10,"Match the pan to the job and don't ruin it","No metal on nonstick, no soap on cast iron, no cold water in a hot pan"],
+  [11,"Food safety: danger zone, leftovers, cross-contamination","Names the temp range and the 2-hour rule without looking"],
+  [11,"Cook to internal temperature, not to time","Uses an instant-read thermometer and knows the target temps"],
+  [12,"Hone, sharpen, and store knives","Steel before every use; nothing loose in a drawer"],
+  [12,"Salvage a dish that's going wrong","Too salty, broken sauce, undercooked center — fixes rather than restarts"],
+  [13,"Plan a week of meals against a dollar figure","Builds the list from the plan and stays under the number"],
+  [13,"Read unit price and date labels","Sell-by vs use-by vs best-by; buys per ounce, not per package"],
+  [14,"Two-zone grilling, gas and charcoal","Direct and indirect heat, lid vents, checks with a thermometer"],
+  [14,"Build a pan sauce from fond","Deglaze, reduce, mount with butter, no lumps"],
+  [15,"Cook a large cut and rest it","Pulls early for carryover, rests before slicing, slices across the grain"],
+  [15,"Bake bread from scratch","Judges proof by feel, doneness by internal temp"],
+  [16,"Time several dishes to land together","Writes a run sheet backward from serving time and hits it"],
+  [16,"Portion, freeze, and label","Nothing unlabeled or undated; knows what freezes badly and why"],
+  [16,"Cook the same meal from memory, no recipe","Repeatable, seasoned by taste"]]},
+
+ {k:"HOM",n:"House &amp; repair",s:[
+  [10,"Read a care label and treat a stain","Treats before the dryer sets it; knows heat is what makes it permanent"],
+  [10,"Smoke and CO detectors: batteries and expiry","Detectors expire around 10 years — knows to check the date on the back"],
+  [11,"Find and operate the shutoffs","Water main, gas, breaker panel — can walk you to all three in the dark"],
+  [11,"Reset a breaker and a GFCI","Names the difference, and the point where they stop and call someone"],
+  [11,"Change the HVAC filter on schedule","Correct size, arrow toward the blower, tracks the date"],
+  [11,"Clean the dryer vent, not just the lint trap","Knows the duct is a fire risk and how to check airflow"],
+  [12,"Hang something heavy that stays up","Finds the stud or picks the right anchor for the weight; ends up level"],
+  [12,"Patch a drywall hole","Patch, mud, feather, sand, prime, paint — invisible when done"],
+  [12,"Clear and reset a jammed disposal","Power off at the switch, hex key from the bottom, reset button"],
+  [12,"Know what never goes down a drain","Grease, wipes, coffee grounds — and what a clog actually costs"],
+  [13,"Fix a running toilet","Diagnoses flapper vs fill valve vs chain, replaces the right part"],
+  [13,"Fix a dripping faucet","Shuts off the supply, identifies the cartridge, replaces it"],
+  [13,"Caulk a tub, sink, or window","Removes the old bead first, cuts the tip small, tools it clean"],
+  [13,"Replace a toilet or faucet supply line","Knows braided steel exists and why the old rubber ones fail"],
+  [14,"Paint a room properly","Prep and tape, cut in, roll wet edges, clean the brushes to reuse them"],
+  [14,"Replace a switch or an outlet","Breaker off, tests dead with a meter, matches the existing wiring"],
+  [14,"Service the mower and small engines","Oil, blade, air filter, plug, fuel stabilizer before storage"],
+  [14,"Set the water heater and flush the tank","Knows the scald risk above 120°F and why sediment matters"],
+  [15,"Winterize the house","Hose bibs, gutters, furnace service, exposed pipe insulation"],
+  [15,"Snake a drain, and know when to stop","Names the point where it becomes a plumber's problem"],
+  [15,"Find the sewer cleanout and the crawlspace","Knows what's under and behind the house before there's water in it"],
+  [15,"Replace a deadbolt","Correct backset, strike plate anchored with 3-inch screws into the stud"],
+  [16,"Read a home inspection report","Separates cosmetic from structural from expensive"],
+  [16,"Build or repair something framed","Square, level, plumb, correct fastener for the load"],
+  [16,"Get and compare contractor bids","Three bids, scope in writing, never the full payment up front"]]},
+
+ {k:"AUT",n:"Vehicles",s:[
+  [9,"Name the tools by sight","Sockets, box vs open end, drivers, pliers — hands you the right one"],
+  [10,"Check and set tire pressure","Reads the door placard, not the number molded into the sidewall"],
+  [10,"Check oil, coolant, and washer fluid","Cold engine, wipe and re-dip, reads the marks correctly"],
+  [11,"Jump-start a car","Correct cable order, final clamp to bare metal ground, not the battery post"],
+  [12,"Replace a headlight or taillight bulb","Never touches the halogen glass with bare fingers"],
+  [12,"Change a flat tire","Correct jack points, star pattern, and checks the spare's pressure first"],
+  [12,"Clean and protect battery terminals","Recognizes corrosion and knows what it's doing to the starting circuit"],
+  [13,"Wipers, cabin filter, engine air filter","All three, on schedule, without being told"],
+  [13,"Follow the manual's maintenance schedule","Can tell you what's due at the next interval and roughly what it costs"],
+  [14,"Read the warning lights and pull the codes","OBD-II reader; knows which lights mean pull over now"],
+  [14,"Use a torque wrench","Knows why torque specs exist and what overtightening does to a stud"],
+  [15,"Change oil and filter","Right weight and quantity, gasket seated, plug torqued, oil recycled"],
+  [15,"Lift a car safely","Jack stands every single time, wheels chocked, never under a jack alone"],
+  [15,"Inspect brakes and tires for wear","Pad thickness, tread depth, and what uneven wear is telling them"],
+  [15,"Rotate tires","Knows the pattern for their drivetrain and why it matters"],
+  [16,"Replace brake pads and rotors","Torqued to spec, beds them in, compresses the piston correctly"],
+  [16,"Handle a collision start to finish","Scene safety, photos, exchange, report, claim, rental"],
+  [16,"Buy a used car","History report, independent pre-purchase inspection, walks away from a bad one"],
+  [17,"Read a shop estimate","Separates required from recommended, gets a second quote on anything big"],
+  [17,"Understand auto insurance","Liability limits, deductible, what a claim actually does to a premium"]]},
+
+ {k:"MON",n:"Money &amp; taxes",s:[
+  [11,"Track every dollar for one month","Income and spending both reconcile at the end"],
+  [12,"Build a budget in a spreadsheet","Income, fixed, variable, savings — and it balances"],
+  [12,"Read a paycheck line by line","Explains gross vs net, FICA, and every withholding item"],
+  [13,"How credit card interest actually works","Calculates the cost of carrying a balance in dollars, not vibes"],
+  [13,"Run compound interest by hand","Produces a 10-year balance without a calculator app doing the thinking"],
+  [14,"Fill out a W-4","Knows what changing it does to both the paycheck and the April number"],
+  [14,"Read a W-2 and a 1099","Explains why the 1099 has no withholding and what that means in April"],
+  [14,"A refund is not free money","Explains what a big refund actually costs them over the year"],
+  [15,"File a practice return end to end","IRS Understanding Taxes or the EVERFI/Intuit simulation, start to finish"],
+  [15,"Credit scores","Names the five factors and the three things that wreck a score fastest"],
+  [15,"Marginal vs effective tax rate","Explains why a raise into a new bracket never lowers take-home pay"],
+  [16,"Run a checking account without fees","Low-balance alerts on, overdraft protection understood, no surprise charges"],
+  [16,"Which tax funds what","Federal, state, sales, property — who levies it and where it goes"],
+  [16,"Read an amortization schedule","States the total interest paid over the life of the loan"],
+  [16,"Estimated taxes on side income","Knows self-employment tax exists and that quarterly payments are a thing"],
+  [17,"The real cost of renting","Deposit, application fees, utilities, renters insurance, true monthly number"],
+  [17,"Retirement basics","Employer match as free money, Roth vs traditional, index funds, expense ratios"],
+  [17,"Spot predatory lending","Names the tells on payday loans, rent-to-own, and dealer financing"],
+  [17,"Owing money you can't pay","Payment plans exist — with the IRS, with hospitals, with almost everyone"],
+  [18,"File their own return, unassisted","You don't touch it and you don't check it"]]},
+
+ {k:"SHP",n:"Tools &amp; shop",s:[
+  [8,"Read a tape measure to the sixteenth","Marks with a V, not a line, and knows about the loose hook"],
+  [9,"Clamp the work before cutting it","The piece never moves and no hand is behind the blade"],
+  [10,"Cordless drill and driver","Bit selection, clutch settings, pilot holes, countersinking"],
+  [10,"Check with a level and a square, not an eyeball","Verifies work instead of trusting how it looks"],
+  [11,"Wear the protection without being told","Eyes, ears, lungs — matched to the tool"],
+  [12,"Pick the right fastener","Screw vs nail vs bolt; shear load vs pull-out; length rule of thumb"],
+  [12,"Sand and finish wood","Grit progression, dust off between grits, thin even coats"],
+  [13,"Circular saw or jigsaw with a guide","Blade choice, workpiece supported, offcut free to fall"],
+  [13,"Solder a wire joint","Shiny joint, heat shrink over it, recognizes a cold solder joint"],
+  [14,"Strip, splice, and terminate wire","Correct gauge for the load, crimps or wire nuts done properly"],
+  [14,"Use a multimeter","Continuity, AC and DC voltage, resistance — and reads the result correctly"],
+  [14,"Extension cords and amperage","Knows gauge vs length vs load and why a hot cord is a warning"],
+  [15,"Miter saw and table saw","Push stick, no freehand rips, no reaching over the blade, guard on"],
+  [15,"Build something from a plan","Cut list, square assembly, a finished piece that holds together"],
+  [16,"Sharpen chisels, blades, and bits","Restores an edge that shaves paper"]]},
+
+ {k:"SAF",n:"Safety &amp; health",s:[
+  [6,"Body boundaries and safe adults","Names three adults besides you they can go to"],
+  [9,"Fire plan and extinguisher","Two exits from every room, meeting point, PASS, and which fires not to fight"],
+  [10,"Stock and use a real first aid kit","Knows what's in it, where it is, and what's expired"],
+  [11,"Respond to choking","Recognizes it and performs the thrusts correctly on a mannequin"],
+  [12,"Take a temperature and dose OTC meds","Reads the active ingredient, doses by weight, won't double up acetaminophen"],
+  [12,"Severe bleeding control","Direct pressure, packing, tourniquet — a Stop the Bleed class covers it"],
+  [13,"CPR and AED certification","An actual card, renewed every two years"],
+  [13,"Severe weather plan","Watch vs warning, shelter spot, what they grab on the way"],
+  [14,"Make and keep their own appointments","Calls, schedules, shows up, can recite their own history"],
+  [14,"Recognize an overdose or alcohol emergency","Calls anyway; knows Missouri's Good Samaritan protections and where naloxone is"],
+  [15,"Manage their own prescriptions","Refills before running out, knows interactions, knows what each one does"],
+  [15,"Name what they're feeling and ask for help","Knows who to call and that asking isn't failure"],
+  [16,"Defensive driving and traffic stops","Hands visible, documents reachable, stays calm and says little"],
+  [16,"Use health insurance","In-network vs out, reads an EOB, questions a bill before paying it"],
+  [17,"Carbon monoxide and gas leaks","Knows the symptoms, the smell, and that the move is leave first, call second"]]},
+
+ {k:"ADM",n:"Paperwork &amp; adulting",s:[
+  [9,"Address and mail an envelope","Return address, correct postage, and it actually arrives"],
+  [10,"Leave a voicemail worth returning","Name, number, reason, number again — under 20 seconds"],
+  [11,"Write an email that gets a reply","Subject line that says the ask, one request, a real deadline"],
+  [12,"Fill out a form correctly","Legal name, DOB, SSN, address — no blanks, no guesses"],
+  [13,"Know where the documents live","Birth certificate, Social Security card, passport, insurance, titles"],
+  [13,"Make an appointment by phone","Introduces themselves, states the need, confirms date and time back"],
+  [14,"Get a state ID","Knows which documents Missouri requires before showing up"],
+  [14,"Write a resume and finish an application","Specific, honest, zero typos, submitted before the deadline"],
+  [15,"Interview well","Researches first, answers with examples, asks questions, follows up in writing"],
+  [15,"Read a contract before signing","Finds the term length, the auto-renew, the fees, and the exit clause"],
+  [15,"Cancel something that doesn't want to be cancelled","Written record, confirmation number, checks the next statement"],
+  [16,"Register to vote and read a ballot","Missouri lets you register at 17½ if you'll be 18 by election day"],
+  [16,"Run their own deadlines","School, work, DMV, renewals — with no reminders from you"],
+  [17,"Evaluate an apartment and a lease","Compares total monthly cost and knows the deposit return rules"],
+  [17,"Escalate a dispute","Return, chargeback, supervisor, written complaint — in that order"],
+  [17,"Know what a notary and a W-9 are for","Recognizes both on sight and knows when they'll be asked for one"],
+  [18,"Selective Service registration","Required for males 18–25 and tied to federal student aid"]]},
+
+ {k:"NET",n:"Digital &amp; security",s:[
+  [10,"Use a password manager","Unique generated password per site; the master password is memorized"],
+  [11,"Multi-factor authentication, email first","Set up, with recovery codes printed and stored somewhere physical"],
+  [12,"Spot a phishing message","Checks the actual sender domain, hovers the link, distrusts urgency"],
+  [12,"Assume everything posted is permanent","Understands screenshots, archives, and that deleting isn't deleting"],
+  [13,"Audit privacy settings","Every account, once a year, on a calendar reminder"],
+  [13,"Back up their own files","Explains 3-2-1 and proves it by restoring a file"],
+  [14,"Verify a source","Finds who's behind it, checks against a second source, recognizes AI-generated media"],
+  [14,"Public WiFi and what leaks","Knows what's actually exposed and when a VPN helps versus when it's theater"],
+  [15,"Recognize social engineering","Names the pattern in romance, crypto, and fake-recruiter scams"],
+  [15,"Freeze their credit","Frozen at all three bureaus, and knows how to thaw it for an application"],
+  [16,"Read what an app does with their data","Finds the data-sharing section before agreeing to it"],
+  [16,"Respond to a breach notice","Changes the password, checks reuse elsewhere, watches the accounts"]]},
+
+ {k:"OUT",n:"Outdoors &amp; resilience",s:[
+  [9,"Read a paper map and use a compass","Orients the map to the ground and follows a bearing"],
+  [10,"Build a fire and put it out cold","Fuel ladder, contained ring, dead out and cool to the touch"],
+  [10,"Pack for an overnight from memory","The ten essentials, no packing list"],
+  [11,"Patch a tube and fix a chain","Bike works again without a shop"],
+  [11,"Get somewhere unfamiliar and back","Transit map or route plan, no turn-by-turn narration"],
+  [12,"Set up camp and sleep out","Site selection, food storage away from the tent, leave no trace"],
+  [13,"Purify water and manage body temperature","Recognizes hypothermia and heat illness in someone else before they do"],
+  [14,"Plan and drive an unfamiliar route","Fuel stops, timing, weather, and a plan for when it goes wrong"],
+  [14,"Grow food to harvest","One bed, seed to plate, including the parts that fail"],
+  [15,"Build and rotate a 72-hour kit","Water, food, meds, documents, cash, radio — and actually rotates it"],
+  [15,"Run the house through a power outage","Generator backfeed danger, food safety timeline, water, heat"]]},
+
+ {k:"PPL",n:"People &amp; communication",s:[
+  [10,"Ask for help without apologizing for it","States the problem, what they tried, and what they need"],
+  [10,"Write a note that names the specific thing","Not \"thanks for the gift\" — thanks for the thing it let them do"],
+  [11,"Order for themselves and calculate the tip","Speaks directly to the server, does the math in their head"],
+  [12,"Take a conflict to the person it's with","Not to you, not to a group chat, not to a subtweet"],
+  [12,"Repair a mistake and let it be over","Names what they did, fixes what they can, doesn't relitigate"],
+  [13,"Speak for three minutes with no notes","To a real audience, on something they know"],
+  [13,"Disagree with an adult and stay respectable","Position, reason, evidence — no insults and no folding"],
+  [14,"Say no and hold it","Doesn't over-explain or negotiate against themselves"],
+  [14,"Raise a problem with a teacher or a boss","Prepared, specific, and arrives with a proposed fix"],
+  [15,"Negotiate and then be quiet","Pay, price, curfew — makes the ask and lets the silence work"],
+  [15,"Recognize manipulation","Names the tactic in a relationship, a sales pitch, or a group"],
+  [16,"Consent and healthy relationships","Can define it and describe concretely what unhealthy looks like"],
+  [16,"Teach a younger sibling a skill from this board","The sibling signs it off, not them"]]}
+];
+
+/* ============================ storage ============================ */
+const KEY="skills-board-v1";
+const store={
+  async get(){
+    try{ if(window.storage){const r=await window.storage.get(KEY,false); if(r&&r.value) return JSON.parse(r.value);} }catch(e){}
+    try{ const v=window.localStorage.getItem(KEY); if(v) return JSON.parse(v); }catch(e){}
+    return null;
+  },
+  async set(o){
+    const s=JSON.stringify(o);
+    try{ if(window.storage){await window.storage.set(KEY,s,false); return "Saved";} }catch(e){}
+    try{ window.localStorage.setItem(KEY,s); return "Saved locally"; }catch(e){}
+    return "Not saved — export to keep your data";
+  }
+};
+
+/* ============================ state ============================ */
+let S={kids:[],status:{},custom:[],hidden:[]};
+let filter={dom:"",eligible:false,open:false,showHidden:false};
+const $=id=>document.getElementById(id);
+const uid=()=>Math.random().toString(36).slice(2,9);
+const today=()=>new Date().toISOString().slice(0,10);
+
+function ageOf(kid){
+  if(!kid.dob) return null;
+  const b=new Date(kid.dob+"T00:00:00"), n=new Date();
+  let a=n.getFullYear()-b.getFullYear();
+  const m=n.getMonth()-b.getMonth();
+  if(m<0||(m===0&&n.getDate()<b.getDate())) a--;
+  return a;
+}
+const isHid=id=>S.hidden.indexOf(id)>-1;
+function allSkills(inclHidden){
+  const out=[];
+  DOMAINS.forEach(d=>d.s.forEach((sk,i)=>out.push({id:d.k+"-"+String(i+1).padStart(2,"0"),dom:d.k,age:sk[0],name:sk[1],note:sk[2]})));
+  S.custom.forEach(c=>out.push(c));
+  return inclHidden?out:out.filter(s=>!isHid(s.id));
+}
+function byDomain(inclHidden){
+  const m={}; DOMAINS.forEach(d=>m[d.k]=[]);
+  allSkills(inclHidden).forEach(s=>{(m[s.dom]=m[s.dom]||[]).push(s)});
+  Object.values(m).forEach(a=>a.sort((x,y)=>x.age-y.age));
+  return m;
+}
+const stat=(k,s)=>((S.status[k]||{})[s]||{}).v||0;
+function setStat(k,s,v){
+  S.status[k]=S.status[k]||{};
+  if(v===0) delete S.status[k][s];
+  else S.status[k][s]={v,d:today()};
+  save(); render();
+}
+async function save(){ $("saveState").textContent=await store.set(S); }
+
+/* ============================ render ============================ */
+function render(){
+  const skills=allSkills(), doms=byDomain(filter.showHidden), kids=S.kids;
+  let done=0,due=0;
+  kids.forEach(k=>{const a=ageOf(k);skills.forEach(s=>{
+    const v=stat(k.id,s.id); if(v===2)done++;
+    if(a!==null&&a>=s.age&&v!==2)due++;
+  })});
+  $("tbKids").textContent=kids.length;
+  $("tbSkills").textContent=skills.length;
+  $("tbDone").textContent=done;
+  $("tbDue").textContent=due;
+  $("bHidden").textContent=S.hidden.length?"Hidden "+S.hidden.length:"Hidden";
+  $("bHidden").disabled=!S.hidden.length&&!filter.showHidden;
+
+  const grid=$("grid");
+  grid.innerHTML="";
+  if(!kids.length){
+    grid.style.gridTemplateColumns="1fr";
+    grid.innerHTML='<div class="empty"><h2 style="margin-top:0">No kids yet</h2>'+
+      '<p>Add each child with a birthdate. Every skill has a start age, so the board only shows you what each one is actually ready for.</p>'+
+      '<button class="btn on" onclick="document.getElementById(\'bKids\').click()">Add a child</button></div>';
+    $("queues").innerHTML="";
+    return;
+  }
+  grid.style.gridTemplateColumns="minmax(150px,1fr) repeat("+kids.length+",var(--cell))";
+
+  // header row
+  const h=document.createElement("div"); h.className="r hdr";
+  const hl=document.createElement("div"); hl.className="rowlabel"; hl.textContent="Skill"; h.appendChild(hl);
+  kids.forEach(k=>{
+    const c=document.createElement("div"); c.className="kid";
+    c.innerHTML='<span class="kid-name">'+esc(k.name.slice(0,3))+'</span><span class="kid-age">'+(ageOf(k)??"?")+'</span>';
+    c.title=k.name;
+    h.appendChild(c);
+  });
+  grid.appendChild(h);
+
+  DOMAINS.forEach(d=>{
+    if(filter.dom&&filter.dom!==d.k) return;
+    let rows=doms[d.k]||[];
+    rows=rows.filter(s=>{
+      if(filter.eligible&&!kids.some(k=>{const a=ageOf(k);return a!==null&&a>=s.age})) return false;
+      if(filter.open&&kids.every(k=>stat(k.id,s.id)===2)) return false;
+      return true;
+    });
+    if(!rows.length) return;
+
+    const vis=rows.filter(s=>!isHid(s.id));
+    const total=vis.length*kids.length;
+    let got=0; vis.forEach(s=>kids.forEach(k=>{if(stat(k.id,s.id)===2)got++}));
+    const dr=document.createElement("div"); dr.className="domrow";
+    dr.innerHTML='<span class="domcode">'+d.k+'</span><span class="domname">'+d.n+'</span>'+
+                 '<span class="domcount">'+got+'/'+total+'</span>';
+    grid.appendChild(dr);
+
+    rows.forEach(s=>{
+      const hid=isHid(s.id);
+      const r=document.createElement("div"); r.className="r"+(hid?" hid":"");
+      const lab=document.createElement("div"); lab.className="rowlabel";
+      lab.innerHTML='<span class="agetag">'+s.age+'+</span><span><span class="skname">'+esc(s.name)+'</span>'+
+        (s.note?'<span class="sknote">'+esc(s.note)+'</span>':'')+'</span>';
+      const hb=document.createElement("button");
+      hb.className="hidebtn"; hb.textContent=hid?"restore":"hide";
+      hb.setAttribute("aria-label",(hid?"Restore ":"Hide ")+s.name);
+      hb.title=hid?"Put this skill back on the board":"Hide this skill for every kid";
+      hb.onclick=()=>{
+        if(hid) S.hidden=S.hidden.filter(x=>x!==s.id);
+        else S.hidden.push(s.id);
+        save(); render();
+      };
+      lab.appendChild(hb);
+      r.appendChild(lab);
+      kids.forEach(k=>{
+        const a=ageOf(k), v=stat(k.id,s.id), locked=(a===null||a<s.age);
+        const w=document.createElement("div"); w.className="cellwrap";
+        const b=document.createElement("button");
+        b.className="cell"+(v?" s"+v:"")+(locked?" locked":"")+((!locked&&v===0&&a-s.age>=2)?" due":"");
+        b.setAttribute("aria-label",k.name+" — "+s.name+" — "+["not started","working on it","signed off"][v]);
+        b.title=k.name+" · "+(locked?"starts at "+s.age:["Not started","Working on it","Signed off "+(((S.status[k.id]||{})[s.id]||{}).d||"")][v]);
+        if(!locked) b.onclick=()=>setStat(k.id,s.id,(v+1)%3);
+        else b.disabled=true;
+        w.appendChild(b); r.appendChild(w);
+      });
+      grid.appendChild(r);
+    });
+  });
+
+  renderQueues(skills);
+}
+
+function renderQueues(skills){
+  const q=$("queues"); q.innerHTML="";
+  S.kids.forEach(k=>{
+    const a=ageOf(k);
+    const eligible=skills.filter(s=>a!==null&&a>=s.age);
+    const open=eligible.filter(s=>stat(k.id,s.id)===0).sort((x,y)=>x.age-y.age).slice(0,6);
+    const doneN=eligible.filter(s=>stat(k.id,s.id)===2).length;
+    const el=document.createElement("div"); el.className="q";
+    let html='<header><h3>'+esc(k.name)+'</h3><span class="meta">age '+(a??"?")+' · '+doneN+'/'+eligible.length+'</span></header>';
+    if(!open.length) html+='<div class="qitem"><span class="qtext">Nothing waiting. Everything they\'re old enough for is started or signed off.</span></div>';
+    open.forEach(s=>{
+      const late=a-s.age;
+      html+='<div class="qitem"><button class="qdot" data-k="'+k.id+'" data-s="'+s.id+'" title="Mark as working on it"></button>'+
+            '<span class="qtext">'+esc(s.name)+(s.note?'<em>'+esc(s.note)+'</em>':'')+'</span>'+
+            (late>=2?'<span class="qwait">'+late+'y</span>':'')+'</div>';
+    });
+    html+='<div class="bars">';
+    DOMAINS.forEach(d=>{
+      const es=skills.filter(s=>s.dom===d.k&&a!==null&&a>=s.age);
+      if(!es.length) return;
+      const dn=es.filter(s=>stat(k.id,s.id)===2).length;
+      html+='<div class="bar-row"><span class="t">'+d.k+'</span><span class="track"><span class="fill" style="width:'+
+            Math.round(dn/es.length*100)+'%"></span></span><span>'+dn+'/'+es.length+'</span></div>';
+    });
+    html+='</div>';
+    el.innerHTML=html; q.appendChild(el);
+  });
+  q.querySelectorAll(".qdot").forEach(b=>b.onclick=()=>setStat(b.dataset.k,b.dataset.s,1));
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ============================ kids panel ============================ */
+function renderKids(){
+  const l=$("kidList"); l.innerHTML="";
+  if(!S.kids.length) l.innerHTML='<p class="hint" style="margin:0 0 4px">No kids added yet.</p>';
+  S.kids.forEach(k=>{
+    const d=document.createElement("div"); d.className="kidchip";
+    d.innerHTML='<span class="nm">'+esc(k.name)+'</span><span class="dt">'+esc(k.dob)+' · age '+(ageOf(k)??"?")+'</span>';
+    const b=document.createElement("button"); b.textContent="Remove";
+    b.onclick=()=>{
+      if(b.dataset.armed){
+        S.kids=S.kids.filter(x=>x.id!==k.id); delete S.status[k.id];
+        save(); renderKids(); render(); return;
+      }
+      l.querySelectorAll("button[data-armed]").forEach(o=>{delete o.dataset.armed;o.textContent="Remove";o.classList.remove("warn")});
+      b.dataset.armed="1"; b.textContent="Remove for good?"; b.classList.add("warn");
+      setTimeout(()=>{ if(b.isConnected&&b.dataset.armed){delete b.dataset.armed;b.textContent="Remove";b.classList.remove("warn")} },5000);
+    };
+    d.appendChild(b); l.appendChild(d);
+  });
+}
+
+/* ============================ wiring ============================ */
+function toggle(id){ $(id).classList.toggle("hidden"); }
+$("bKids").onclick=()=>{ toggle("pKids"); renderKids(); };
+$("bAdd").onclick=()=>toggle("pAdd");
+$("kAdd").onclick=()=>{
+  const n=$("kName").value.trim(), d=$("kDob").value;
+  if(!n||!d){ $("kMsg").textContent="Name and birthdate are both required."; return; }
+  $("kMsg").textContent="";
+  S.kids.push({id:uid(),name:n,dob:d});
+  $("kName").value=""; $("kDob").value="";
+  save(); renderKids(); render();
+};
+$("cAdd").onclick=()=>{
+  const n=$("cName").value.trim();
+  if(!n){ $("cMsg").textContent="Give the skill a name."; return; }
+  $("cMsg").textContent="";
+  S.custom.push({id:"X-"+uid(),dom:$("cDomain").value,age:+$("cAge").value||10,name:n,note:$("cNote").value.trim()});
+  $("cName").value=""; $("cNote").value="";
+  save(); render();
+};
+$("fDomain").onchange=e=>{ filter.dom=e.target.value; render(); };
+$("fEligible").onclick=e=>{ filter.eligible=!filter.eligible; e.target.classList.toggle("on",filter.eligible); render(); };
+$("fOpen").onclick=e=>{ filter.open=!filter.open; e.target.classList.toggle("on",filter.open); render(); };
+$("bHidden").onclick=e=>{ filter.showHidden=!filter.showHidden; e.target.classList.toggle("on",filter.showHidden); render(); };
+$("bExport").onclick=()=>{
+  const b=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(b); a.download="skills-board-"+today()+".json"; a.click();
+};
+$("bImport").onclick=()=>$("fileIn").click();
+$("fileIn").onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{ const o=JSON.parse(r.result);
+    if(!o.kids) throw 0;
+    S={kids:o.kids||[],status:o.status||{},custom:o.custom||[],hidden:o.hidden||[]};
+    save(); renderKids(); render();
+  }catch(err){ $("saveState").textContent="That file isn't a Skills Board export."; } };
+  r.readAsText(f); e.target.value="";
+};
+
+DOMAINS.forEach(d=>{
+  const t=d.n.replace(/&amp;/g,"&");
+  $("fDomain").insertAdjacentHTML("beforeend",'<option value="'+d.k+'">'+t+'</option>');
+  $("cDomain").insertAdjacentHTML("beforeend",'<option value="'+d.k+'">'+t+'</option>');
+});
+
+if("serviceWorker" in navigator && location.protocol==="https:"){
+  addEventListener("load",()=>navigator.serviceWorker.register("./sw.js",{scope:"./"}).catch(()=>{}));
+}
+
+(async()=>{
+  const saved=await store.get();
+  if(saved) S={kids:saved.kids||[],status:saved.status||{},custom:saved.custom||[],hidden:saved.hidden||[]};
+  render();
+})();
+</script>
