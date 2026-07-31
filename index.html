@@ -101,7 +101,7 @@ select{font-family:var(--cond);letter-spacing:.06em;text-transform:uppercase;fon
 .rowlabel{padding:7px 12px 7px 0;display:flex;align-items:baseline;gap:9px;min-width:0}
 .hdr .rowlabel{padding-left:12px;font-family:var(--cond);letter-spacing:.18em;text-transform:uppercase;font-size:12px;color:var(--muted)}
 .skname{font-size:14px;line-height:1.25}
-.sknote{display:block;font-size:12px;color:var(--muted-dim);line-height:1.3;margin-top:1px}
+.sknote{display:block;font-size:12px;color:var(--muted-dim);line-height:1.3;margin-top:1px;max-width:88ch}
 .hidebtn{
   flex:0 0 auto;margin-left:auto;align-self:center;
   font-family:var(--cond);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
@@ -116,6 +116,16 @@ select{font-family:var(--cond);letter-spacing:.06em;text-transform:uppercase;fon
 .btn:disabled{opacity:.35;cursor:default}
 .btn:disabled:hover{background:none;border-color:var(--line-hard)}
 @media (hover:none){.hidebtn{opacity:.6}}
+.vidbtn{
+  flex:0 0 auto;margin-left:auto;align-self:center;
+  font-family:var(--cond);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted-dim);padding:2px 6px;border:1px solid transparent;opacity:0;
+}
+.rowlabel:hover .vidbtn,.vidbtn:focus-visible{opacity:1}
+.vidbtn:hover{color:var(--pencil);border-color:var(--line-hard)}
+.vidbtn.has{opacity:1;color:var(--chalk)}
+.vidbtn+.vidbtn,.vidbtn+.hidebtn{margin-left:6px}
+@media (hover:none){.vidbtn{opacity:.6}.vidbtn.has{opacity:1}}
 .agetag{font-family:var(--mono);font-size:11px;color:var(--muted-dim);flex:0 0 auto;padding-top:2px}
 
 .domrow{
@@ -239,6 +249,18 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding-top:14px;font-fa
     <button class="btn" id="cAdd">Add</button>
     <span id="cMsg" class="msg"></span>
   </div>
+</div>
+
+<div class="panel hidden" id="pVid">
+  <h3>Walkthrough video &mdash; <span id="vName"></span></h3>
+  <div class="fields">
+    <input type="text" id="vUrl" placeholder="https://www.youtube.com/watch?v=..." size="40">
+    <button class="btn" id="vSave">Save</button>
+    <button class="btn" id="vClear">Clear</button>
+    <button class="btn" id="vClose">Close</button>
+    <span id="vMsg" class="msg"></span>
+  </div>
+  <p class="hint">With nothing saved, <b>watch</b> runs a YouTube search for that skill. Paste a link here to pin one you've actually vetted. Saved links live in your browser and ride along with Export.</p>
 </div>
 
 <div class="legend">
@@ -503,7 +525,7 @@ const store={
 };
 
 /* ============================ state ============================ */
-let S={kids:[],status:{},custom:[],hidden:[]};
+let S={kids:[],status:{},custom:[],hidden:[],vids:{}};
 let filter={dom:"",eligible:false,open:false,showHidden:false};
 const $=id=>document.getElementById(id);
 const uid=()=>Math.random().toString(36).slice(2,9);
@@ -538,6 +560,37 @@ function setStat(k,s,v){
   save(); render();
 }
 async function save(){ $("saveState").textContent=await store.set(S); }
+
+/* ============================ videos ============================ */
+const vidOf=id=>(S.vids||{})[id]||"";
+// No video saved: search YouTube for the skill rather than guess at a video id.
+function vidSearch(s){
+  const q=s.name.replace(/^Capstone:\s*/,"").replace(/\s+/g," ").trim()+" how to";
+  return "https://www.youtube.com/results?search_query="+encodeURIComponent(q);
+}
+// "" = clear it, null = reject. Only http(s) — watch opens this, so javascript: must never through.
+function vidClean(u){
+  u=String(u||"").trim();
+  if(!u) return "";
+  return /^https?:\/\/\S+$/i.test(u) ? u : null;
+}
+let vidFor=null;
+function vidOpen(s){
+  vidFor=s;
+  $("vName").textContent=s.name;
+  $("vUrl").value=vidOf(s.id);
+  $("vMsg").textContent="";
+  $("pVid").classList.remove("hidden");
+  $("vUrl").focus();
+}
+function vidSet(url){
+  if(!vidFor) return;
+  S.vids=S.vids||{};
+  if(url) S.vids[vidFor.id]=url; else delete S.vids[vidFor.id];
+  save(); render();
+  $("pVid").classList.add("hidden");
+  vidFor=null;
+}
 
 /* ============================ render ============================ */
 function render(){
@@ -601,6 +654,20 @@ function render(){
       const lab=document.createElement("div"); lab.className="rowlabel";
       lab.innerHTML='<span class="agetag">'+s.age+'+</span><span><span class="skname">'+esc(s.name)+'</span>'+
         (s.note?'<span class="sknote">'+esc(s.note)+'</span>':'')+'</span>';
+      const saved=vidOf(s.id);
+      const vb=document.createElement("button");
+      vb.className="vidbtn"+(saved?" has":"");
+      vb.textContent="watch";
+      vb.setAttribute("aria-label","Watch a walkthrough for "+s.name);
+      vb.title=saved?"Open the saved walkthrough":"Nothing saved yet — searches YouTube for this skill";
+      vb.onclick=()=>window.open(saved||vidSearch(s),"_blank","noopener,noreferrer");
+      lab.appendChild(vb);
+      const eb=document.createElement("button");
+      eb.className="vidbtn"; eb.textContent="link";
+      eb.setAttribute("aria-label","Set the walkthrough link for "+s.name);
+      eb.title="Pin a specific video to this skill";
+      eb.onclick=()=>vidOpen(s);
+      lab.appendChild(eb);
       const hb=document.createElement("button");
       hb.className="hidebtn"; hb.textContent=hid?"restore":"hide";
       hb.setAttribute("aria-label",(hid?"Restore ":"Hide ")+s.name);
@@ -702,6 +769,14 @@ $("cAdd").onclick=()=>{
   $("cName").value=""; $("cNote").value="";
   save(); render();
 };
+$("vSave").onclick=()=>{
+  const u=vidClean($("vUrl").value);
+  if(u===null){ $("vMsg").textContent="Needs a full http:// or https:// link."; return; }
+  vidSet(u);
+};
+$("vClear").onclick=()=>{ $("vUrl").value=""; vidSet(""); };
+$("vClose").onclick=()=>{ $("pVid").classList.add("hidden"); vidFor=null; };
+$("vUrl").onkeydown=e=>{ if(e.key==="Enter") $("vSave").click(); };
 $("fDomain").onchange=e=>{ filter.dom=e.target.value; render(); };
 $("fEligible").onclick=e=>{ filter.eligible=!filter.eligible; e.target.classList.toggle("on",filter.eligible); render(); };
 $("fOpen").onclick=e=>{ filter.open=!filter.open; e.target.classList.toggle("on",filter.open); render(); };
@@ -717,7 +792,7 @@ $("fileIn").onchange=e=>{
   const r=new FileReader();
   r.onload=()=>{ try{ const o=JSON.parse(r.result);
     if(!o.kids) throw 0;
-    S={kids:o.kids||[],status:o.status||{},custom:o.custom||[],hidden:o.hidden||[]};
+    S={kids:o.kids||[],status:o.status||{},custom:o.custom||[],hidden:o.hidden||[],vids:o.vids||{}};
     save(); renderKids(); render();
   }catch(err){ $("saveState").textContent="That file isn't a Skills Board export."; } };
   r.readAsText(f); e.target.value="";
@@ -735,7 +810,7 @@ if("serviceWorker" in navigator && location.protocol==="https:"){
 
 (async()=>{
   const saved=await store.get();
-  if(saved) S={kids:saved.kids||[],status:saved.status||{},custom:saved.custom||[],hidden:saved.hidden||[]};
+  if(saved) S={kids:saved.kids||[],status:saved.status||{},custom:saved.custom||[],hidden:saved.hidden||[],vids:saved.vids||{}};
   render();
 })();
 </script>
