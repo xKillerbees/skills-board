@@ -225,6 +225,14 @@ h2{font-family:var(--cond);font-size:22px;letter-spacing:.2em;text-transform:upp
 .qtext{font-size:13.5px;line-height:1.3}
 .qtext em{font-style:normal;display:block;color:var(--muted-dim);font-size:12px}
 .qwait{font-family:var(--mono);font-size:10.5px;color:var(--pencil);margin-left:auto;flex:0 0 auto;padding-top:2px}
+.qvid{
+  flex:0 0 auto;margin-left:auto;align-self:flex-start;padding:1px 0 0;
+  font-family:var(--cond);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted-dim);
+}
+.qvid:hover{color:var(--chalk)}
+.qvid.has{color:var(--chalk)}
+.qvid+.qwait{margin-left:6px}
 .bars{padding:10px 14px 13px}
 .bar-row{display:flex;align-items:center;gap:8px;margin-top:4px;font-family:var(--mono);font-size:10px;color:var(--muted-dim)}
 .bar-row .t{flex:0 0 34px;letter-spacing:.06em}
@@ -314,7 +322,7 @@ try{var t0=localStorage.getItem("skills-board-theme");if(t0)document.documentEle
   <button class="btn" id="bReset">Reset edits</button>
   <span class="spacer"></span>
   <button class="btn" id="bKids">Kids</button>
-  <button class="btn" id="bAdd">Add skill</button>
+  <button class="btn" id="bAdd">Add skill/category</button>
   <button class="btn" id="bExport">Export</button>
   <button class="btn" id="bImport">Import</button>
   <span class="selgroup">
@@ -351,11 +359,11 @@ try{var t0=localStorage.getItem("skills-board-theme");if(t0)document.documentEle
   <div id="domList"></div>
   <div class="fields" style="margin-top:10px">
     <input type="text" id="dName" placeholder="Category name" size="26" aria-label="Category name">
-    <input type="text" id="dCode" placeholder="Code" size="4" maxlength="4" style="width:74px" aria-label="Short code">
+    <input type="text" id="dCode" placeholder="Prefix" size="6" maxlength="4" style="width:82px" aria-label="Short prefix">
     <button class="btn" id="dAdd">Add category</button>
     <span id="dMsg" class="msg"></span>
   </div>
-  <p class="hint">Categories of your own sit below the built-in ones and work the same way &mdash; add skills to them above, and each gets its own progress bar. Leave the code blank and one is made from the name. Removing a category also removes the skills inside it.</p>
+  <p class="hint">Categories of your own sit below the built-in ones and work the same way &mdash; add skills to them above, and each gets its own progress bar. The prefix is the short tag shown beside the category name, like KIT or SHP; leave it blank and one is made from the name. Removing a category also removes the skills inside it.</p>
 </div>
 
 <div class="panel hidden" id="pEdit">
@@ -915,8 +923,11 @@ function renderQueues(skills){
     if(!open.length) html+='<div class="qitem"><span class="qtext">Nothing waiting. Everything they\'re old enough for is started or signed off.</span></div>';
     open.forEach(s=>{
       const late=a-s.age;
+      const qv=vidOf(s.id);
       html+='<div class="qitem"><button class="qdot" data-k="'+k.id+'" data-s="'+s.id+'" title="Mark as working on it"></button>'+
             '<span class="qtext">'+esc(s.name)+(s.note?'<em>'+esc(s.note)+'</em>':'')+'</span>'+
+            '<button class="qvid'+(qv?' has':'')+'" data-s="'+esc(s.id)+'" title="'+
+              (qv?'Open the saved walkthrough':'Search YouTube for this skill')+'" aria-label="Watch a walkthrough for '+esc(s.name)+'">watch</button>'+
             (late>=2?'<span class="qwait">'+late+'y</span>':'')+'</div>';
     });
     html+='<div class="bars">';
@@ -931,6 +942,10 @@ function renderQueues(skills){
     el.innerHTML=html; q.appendChild(el);
   });
   q.querySelectorAll(".qdot").forEach(b=>b.onclick=()=>setStat(b.dataset.k,b.dataset.s,1));
+  q.querySelectorAll(".qvid").forEach(b=>b.onclick=()=>{
+    const sk=skills.find(x=>x.id===b.dataset.s);
+    if(sk) window.open(vidOf(sk.id)||vidSearch(sk),"_blank","noopener,noreferrer");
+  });
 }
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
