@@ -126,6 +126,13 @@ select,input[type=text],input[type=date],input[type=number],textarea{
   border:1px solid var(--line-hard);padding:6px 9px;
 }
 select{font-family:var(--cond);letter-spacing:.06em;text-transform:uppercase;font-size:14px}
+/* Labelled so the theme picker doesn't read as another filter. */
+.selgroup{display:inline-flex;align-items:stretch;border:1px solid var(--line-hard)}
+.selgroup label{
+  font-family:var(--cond);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted-dim);padding:0 9px;display:flex;align-items:center;background:var(--ink-2);
+}
+.selgroup select{border:0;border-left:1px solid var(--line-hard);background:none}
 
 /* ---------- matrix ---------- */
 .legend{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--muted);padding:0 0 12px;font-family:var(--mono)}
@@ -240,11 +247,39 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding-top:14px;font-fa
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 @media (max-width:640px){
+  :root{--cell:30px}
+  body{font-size:14px}
+  .wrap{padding:0 12px}
   h1{font-size:32px}
+  header{padding-top:18px;margin-bottom:16px}
   .titleblock{grid-template-columns:repeat(2,1fr);width:100%}
   .tb{border-bottom:1px solid var(--line-hard)}
   .sknote{display:none}
-  :root{--cell:30px}
+
+  /* The board is width:max-content on desktop, which on a phone pushed the
+     kid columns off-screen entirely — names visible, checkboxes unreachable
+     without a sideways scroll. Fit it to the viewport instead so the cells
+     always sit beside the skill they belong to. */
+  .grid{width:100%;min-width:0}
+  .rowlabel{padding:7px 6px 7px 0;gap:6px}
+  .skname{font-size:13px;line-height:1.25}
+  .agetag{font-size:10px;padding-top:1px}
+  .vidbtn,.hidebtn{font-size:9.5px;letter-spacing:.06em;padding:2px 3px}
+  .vidbtn+.vidbtn,.vidbtn+.hidebtn{margin-left:3px}
+  .cell{width:18px;height:18px}
+
+  /* Toolbar is dense now; shrink it so it doesn't eat the first screen. */
+  .bar{gap:6px;padding-bottom:12px}
+  .btn{font-size:12.5px;padding:5px 9px;letter-spacing:.08em}
+  select,input[type=text],input[type=date],input[type=number]{font-size:13px;padding:5px 7px}
+  .selgroup label{font-size:10px;padding:0 7px}
+  .spacer{display:none}
+  .legend{gap:10px 14px;font-size:11px;padding-bottom:10px}
+  .domname{font-size:16px;letter-spacing:.12em}
+  .domrow{padding:11px 10px 5px;gap:9px}
+  h2{font-size:19px;margin-top:26px}
+  .panel{padding:12px}
+  .fields input[type=text]{flex:1 1 100%}
 }
 </style>
 
@@ -268,7 +303,6 @@ try{var t0=localStorage.getItem("skills-board-theme");if(t0)document.documentEle
 </header>
 
 <div class="bar">
-  <select id="fTheme" aria-label="Theme" title="Theme"></select>
   <select id="fDomain"><option value="">All areas</option></select>
   <button class="btn" id="fEligible">Age-ready only</button>
   <button class="btn" id="fOpen">Hide signed off</button>
@@ -279,6 +313,10 @@ try{var t0=localStorage.getItem("skills-board-theme");if(t0)document.documentEle
   <button class="btn" id="bAdd">Add skill</button>
   <button class="btn" id="bExport">Export</button>
   <button class="btn" id="bImport">Import</button>
+  <span class="selgroup">
+    <label for="fTheme">Theme</label>
+    <select id="fTheme" aria-label="Theme"></select>
+  </span>
   <input type="file" id="fileIn" accept="application/json" class="hidden">
 </div>
 
