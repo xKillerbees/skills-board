@@ -154,7 +154,7 @@ option{background:var(--ink-2);color:var(--paper)}
 .hdr .kid{writing-mode:horizontal-tb;text-align:center;padding:8px 0}
 .kid-name{font-family:var(--cond);font-size:13px;letter-spacing:.08em;text-transform:uppercase;line-height:1}
 .kid-age{font-family:var(--mono);font-size:10px;color:var(--muted);display:block;margin-top:2px}
-.rowlabel{padding:7px 12px 7px 0;display:flex;align-items:baseline;gap:9px;min-width:0}
+.rowlabel{padding:7px 12px;display:flex;align-items:baseline;gap:9px;min-width:0}
 .hdr .rowlabel{padding-left:12px;font-family:var(--cond);letter-spacing:.18em;text-transform:uppercase;font-size:12px;color:var(--muted)}
 .skname{font-size:14px;line-height:1.25}
 .sknote{display:block;font-size:12px;color:var(--muted-dim);line-height:1.3;margin-top:1px;max-width:88ch}
@@ -195,8 +195,12 @@ option{background:var(--ink-2);color:var(--paper)}
 .domcode{font-family:var(--mono);font-size:11px;color:var(--chalk);letter-spacing:.1em}
 .domname{font-family:var(--cond);font-size:19px;letter-spacing:.16em;text-transform:uppercase}
 .domcount{font-family:var(--mono);font-size:11px;color:var(--muted-dim);margin-left:auto}
-.domtrack{flex:0 0 84px;height:5px;background:var(--track);margin-left:auto;align-self:center}
+.domtrack{flex:0 0 84px;height:6px;background:var(--track);border:1px solid var(--line);margin-left:auto;align-self:center}
 .domtrack+.domcount{margin-left:9px}
+.domcaret{font-family:var(--mono);font-size:11px;color:var(--muted-dim);flex:0 0 auto;margin-left:9px;align-self:center}
+.domrow{cursor:pointer;user-select:none}
+.domrow:hover .domname,.domrow:focus-visible .domname{color:var(--chalk)}
+.domrow:hover .domcaret,.domrow:focus-visible .domcaret{color:var(--chalk)}
 
 .r{display:contents}
 .r > *{border-top:1px solid var(--line)}
@@ -235,8 +239,11 @@ h2{font-family:var(--cond);font-size:22px;letter-spacing:.2em;text-transform:upp
 .qvid:hover{color:var(--chalk)}
 .qvid.has{color:var(--chalk)}
 .qvid+.qwait{margin-left:6px}
-.qtotal{display:flex;align-items:center;gap:9px;padding:10px 14px 2px;font-family:var(--mono);font-size:10px;color:var(--muted-dim)}
-.qtotal .track{height:6px}
+/* Needs an outline: at a low percentage an unbordered track reads as a rule. */
+.qtotal{display:flex;align-items:center;gap:10px;padding:11px 14px 3px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.qtotal .track{height:10px;background:var(--track);border:1px solid var(--line-hard)}
+.qtotal .fill{background:var(--chalk);min-width:2px}
+.qtotal .pct{flex:0 0 auto;letter-spacing:.04em}
 
 /* ---------- lately ---------- */
 .latelyrow{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
@@ -284,7 +291,7 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding-top:14px;font-fa
      without a sideways scroll. Fit it to the viewport instead so the cells
      always sit beside the skill they belong to. */
   .grid{width:100%;min-width:0}
-  .rowlabel{padding:7px 6px 7px 0;gap:6px}
+  .rowlabel{padding:7px 6px 7px 9px;gap:6px}
   .skname{font-size:13px;line-height:1.25}
   .agetag{font-size:10px;padding-top:1px}
   .vidbtn,.hidebtn{font-size:9.5px;letter-spacing:.06em;padding:2px 3px}
@@ -715,7 +722,7 @@ const store={
 };
 
 /* ============================ state ============================ */
-let S={kids:[],status:{},custom:[],hidden:[],vids:{},edits:{},doms:[],theme:THEME_DEFAULT};
+let S={kids:[],status:{},custom:[],hidden:[],vids:{},edits:{},doms:[],collapsed:[],theme:THEME_DEFAULT};
 let filter={dom:"",eligible:false,open:false,showHidden:false,q:""};
 const $=id=>document.getElementById(id);
 const uid=()=>Math.random().toString(36).slice(2,9);
@@ -908,12 +915,30 @@ function render(){
     const dr=document.createElement("div"); dr.className="domrow";
     // textContent, not innerHTML: category names are user-supplied.
     dr.innerHTML='<span class="domcode"></span><span class="domname"></span>'+
-                 '<span class="domtrack"><span class="fill"></span></span><span class="domcount"></span>';
+                 '<span class="domtrack"><span class="fill"></span></span><span class="domcount"></span>'+
+                 '<span class="domcaret"></span>';
     dr.children[0].textContent=domCode(d);
     dr.children[1].textContent=domName(d);
     dr.children[2].firstElementChild.style.width=(total?Math.round(got/total*100):0)+'%';
     dr.children[3].textContent=got+'/'+total;
+
+    // A search should reach into collapsed categories rather than hide matches.
+    const shut=(S.collapsed||[]).indexOf(d.k)>-1 && !filter.q;
+    dr.children[4].textContent=shut?"▸":"▾";
+    dr.setAttribute("role","button");
+    dr.tabIndex=0;
+    dr.setAttribute("aria-expanded",shut?"false":"true");
+    dr.title=(shut?"Show ":"Hide ")+domName(d);
+    const toggle=()=>{
+      S.collapsed=S.collapsed||[];
+      const i=S.collapsed.indexOf(d.k);
+      if(i>-1) S.collapsed.splice(i,1); else S.collapsed.push(d.k);
+      save(); render();
+    };
+    dr.onclick=toggle;
+    dr.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(); } };
     grid.appendChild(dr);
+    if(shut) return;
 
     rows.forEach(s=>{
       const hid=isHid(s.id);
@@ -1020,7 +1045,8 @@ function renderQueues(skills){
     const el=document.createElement("div"); el.className="q";
     const pct=eligible.length?Math.round(doneN/eligible.length*100):0;
     let html='<header><h3>'+esc(k.name)+'</h3><span class="meta">age '+(a??"?")+' · '+doneN+'/'+eligible.length+'</span></header>'+
-             '<div class="qtotal"><span class="track"><span class="fill" style="width:'+pct+'%"></span></span><span>'+pct+'%</span></div>';
+             '<div class="qtotal"><span class="track"><span class="fill" style="width:'+pct+'%"></span></span>'+
+             '<span class="pct">'+doneN+'/'+eligible.length+' &middot; '+pct+'%</span></div>';
     if(!open.length) html+='<div class="qitem"><span class="qtext">Nothing waiting. Everything they\'re old enough for is started or signed off.</span></div>';
     open.forEach(s=>{
       const late=a-s.age;
@@ -1174,7 +1200,7 @@ $("fileIn").onchange=e=>{
   const r=new FileReader();
   r.onload=()=>{ try{ const o=JSON.parse(r.result);
     if(!o.kids) throw 0;
-    S={kids:o.kids||[],status:o.status||{},custom:o.custom||[],hidden:o.hidden||[],vids:o.vids||{},edits:o.edits||{},doms:o.doms||[],theme:o.theme||THEME_DEFAULT};
+    S={kids:o.kids||[],status:o.status||{},custom:o.custom||[],hidden:o.hidden||[],vids:o.vids||{},edits:o.edits||{},doms:o.doms||[],collapsed:o.collapsed||[],theme:o.theme||THEME_DEFAULT};
     S.theme=applyTheme(S.theme);
     refreshDomainSelects();
     save(); renderKids(); render();
@@ -1207,7 +1233,7 @@ if("serviceWorker" in navigator && location.protocol==="https:"){
 
 (async()=>{
   const saved=await store.get();
-  if(saved) S={kids:saved.kids||[],status:saved.status||{},custom:saved.custom||[],hidden:saved.hidden||[],vids:saved.vids||{},edits:saved.edits||{},doms:saved.doms||[],theme:saved.theme||THEME_DEFAULT};
+  if(saved) S={kids:saved.kids||[],status:saved.status||{},custom:saved.custom||[],hidden:saved.hidden||[],vids:saved.vids||{},edits:saved.edits||{},doms:saved.doms||[],collapsed:saved.collapsed||[],theme:saved.theme||THEME_DEFAULT};
   S.theme=applyTheme(S.theme);
   refreshDomainSelects();
   render();
