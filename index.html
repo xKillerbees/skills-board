@@ -126,6 +126,8 @@ select{font-family:var(--cond);letter-spacing:.06em;text-transform:uppercase;fon
 .vidbtn.has{opacity:1;color:var(--chalk)}
 .vidbtn+.vidbtn,.vidbtn+.hidebtn{margin-left:6px}
 @media (hover:none){.vidbtn{opacity:.6}.vidbtn.has{opacity:1}}
+.btn.warn{color:var(--pencil);border-color:var(--pencil)}
+.agetag.ed{color:var(--pencil)}
 .agetag{font-family:var(--mono);font-size:11px;color:var(--muted-dim);flex:0 0 auto;padding-top:2px}
 
 .domrow{
@@ -219,6 +221,7 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding-top:14px;font-fa
   <button class="btn" id="fEligible">Age-ready only</button>
   <button class="btn" id="fOpen">Hide signed off</button>
   <button class="btn" id="bHidden">Hidden</button>
+  <button class="btn" id="bReset">Reset edits</button>
   <span class="spacer"></span>
   <button class="btn" id="bKids">Kids</button>
   <button class="btn" id="bAdd">Add skill</button>
@@ -251,16 +254,21 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding-top:14px;font-fa
   </div>
 </div>
 
-<div class="panel hidden" id="pVid">
-  <h3>Walkthrough video &mdash; <span id="vName"></span></h3>
+<div class="panel hidden" id="pEdit">
+  <h3>Edit &mdash; <span id="eWhich"></span></h3>
   <div class="fields">
-    <input type="text" id="vUrl" placeholder="https://www.youtube.com/watch?v=..." size="40">
-    <button class="btn" id="vSave">Save</button>
-    <button class="btn" id="vClear">Clear</button>
-    <button class="btn" id="vClose">Close</button>
-    <span id="vMsg" class="msg"></span>
+    <input type="number" id="eAge" min="3" max="18" style="width:64px" aria-label="Start age" title="Start age">
+    <input type="text" id="eTitle" placeholder="Skill" size="26" aria-label="Skill name">
+    <input type="text" id="eNote" placeholder="What counts as done" size="32" aria-label="What counts as done">
   </div>
-  <p class="hint">With nothing saved, <b>watch</b> runs a YouTube search for that skill. Paste a link here to pin one you've actually vetted. Saved links live in your browser and ride along with Export.</p>
+  <div class="fields" style="margin-top:8px">
+    <input type="text" id="eUrl" placeholder="Video link (optional)" size="34" aria-label="Walkthrough video link">
+    <button class="btn" id="eSave">Save</button>
+    <button class="btn" id="eRevert">Reset this skill</button>
+    <button class="btn" id="eClose">Close</button>
+    <span id="eMsg" class="msg"></span>
+  </div>
+  <p class="hint" id="eOrig"></p>
 </div>
 
 <div class="legend">
@@ -525,7 +533,7 @@ const store={
 };
 
 /* ============================ state ============================ */
-let S={kids:[],status:{},custom:[],hidden:[],vids:{}};
+let S={kids:[],status:{},custom:[],hidden:[],vids:{},edits:{}};
 let filter={dom:"",eligible:false,open:false,showHidden:false};
 const $=id=>document.getElementById(id);
 const uid=()=>Math.random().toString(36).slice(2,9);
@@ -540,10 +548,27 @@ function ageOf(kid){
   return a;
 }
 const isHid=id=>S.hidden.indexOf(id)>-1;
-function allSkills(inclHidden){
+// The catalog stays the source of truth; user changes are an overlay keyed by
+// skill id, so resetting one is just dropping its key. Never edit DOMAINS.
+function baseSkills(){
   const out=[];
   DOMAINS.forEach(d=>d.s.forEach((sk,i)=>out.push({id:d.k+"-"+String(i+1).padStart(2,"0"),dom:d.k,age:sk[0],name:sk[1],note:sk[2]})));
   S.custom.forEach(c=>out.push(c));
+  return out;
+}
+const baseOf=id=>baseSkills().find(s=>s.id===id)||null;
+const editOf=id=>(S.edits||{})[id]||null;
+const isEdited=id=>!!editOf(id);
+function withEdit(s){
+  const e=editOf(s.id);
+  if(!e) return s;
+  return {id:s.id,dom:s.dom,
+    age:(e.age===undefined?s.age:e.age),
+    name:(e.name===undefined?s.name:e.name),
+    note:(e.note===undefined?s.note:e.note)};
+}
+function allSkills(inclHidden){
+  const out=baseSkills().map(withEdit);
   return inclHidden?out:out.filter(s=>!isHid(s.id));
 }
 function byDomain(inclHidden){
@@ -574,23 +599,55 @@ function vidClean(u){
   if(!u) return "";
   return /^https?:\/\/\S+$/i.test(u) ? u : null;
 }
-let vidFor=null;
-function vidOpen(s){
-  vidFor=s;
-  $("vName").textContent=s.name;
-  $("vUrl").value=vidOf(s.id);
-  $("vMsg").textContent="";
-  $("pVid").classList.remove("hidden");
-  $("vUrl").focus();
+/* ============================ editing ============================ */
+let editFor=null;
+function editOpen(s){
+  editFor=s.id;
+  const b=baseOf(s.id), cur=withEdit(b);
+  $("eWhich").textContent=cur.name;
+  $("eAge").value=cur.age;
+  $("eTitle").value=cur.name;
+  $("eNote").value=cur.note||"";
+  $("eUrl").value=vidOf(s.id);
+  $("eMsg").textContent="";
+  $("eOrig").textContent=isEdited(s.id)
+    ? "Originally: age "+b.age+" — "+b.name+(b.note?" — "+b.note:"")
+    : "Unchanged from the built-in board. Reset this skill puts the age, name, and note back; clear the link field to drop a video.";
+  $("pEdit").classList.remove("hidden");
+  $("eTitle").focus();
 }
-function vidSet(url){
-  if(!vidFor) return;
+// Store only fields that actually differ, so a later catalog change still
+// reaches any field the user never touched.
+function editSave(){
+  if(!editFor) return;
+  const b=baseOf(editFor);
+  if(!b){ $("eMsg").textContent="That skill no longer exists."; return; }
+  const age=parseInt($("eAge").value,10);
+  if(!Number.isFinite(age)||age<3||age>18){ $("eMsg").textContent="Age must be a whole number from 3 to 18."; return; }
+  const name=$("eTitle").value.trim();
+  if(!name){ $("eMsg").textContent="The skill needs a name."; return; }
+  const note=$("eNote").value.trim();
+  const url=vidClean($("eUrl").value);
+  if(url===null){ $("eMsg").textContent="Video link needs to be a full http:// or https:// URL."; return; }
+
+  const diff={};
+  if(age!==b.age) diff.age=age;
+  if(name!==b.name) diff.name=name;
+  if(note!==(b.note||"")) diff.note=note;
+  S.edits=S.edits||{};
+  if(Object.keys(diff).length) S.edits[editFor]=diff; else delete S.edits[editFor];
+
   S.vids=S.vids||{};
-  if(url) S.vids[vidFor.id]=url; else delete S.vids[vidFor.id];
-  save(); render();
-  $("pVid").classList.add("hidden");
-  vidFor=null;
+  if(url) S.vids[editFor]=url; else delete S.vids[editFor];
+
+  save(); render(); editClose();
 }
+function editRevert(){
+  if(!editFor) return;
+  if(S.edits) delete S.edits[editFor];
+  save(); render(); editClose();
+}
+function editClose(){ $("pEdit").classList.add("hidden"); editFor=null; }
 
 /* ============================ render ============================ */
 function render(){
@@ -606,6 +663,9 @@ function render(){
   $("tbDue").textContent=due;
   $("bHidden").textContent=S.hidden.length?"Hidden "+S.hidden.length:"Hidden";
   $("bHidden").disabled=!S.hidden.length&&!filter.showHidden;
+  const nEd=Object.keys(S.edits||{}).length;
+  if(!$("bReset").dataset.armed) $("bReset").textContent=nEd?"Reset edits "+nEd:"Reset edits";
+  $("bReset").disabled=!nEd;
 
   const grid=$("grid");
   grid.innerHTML="";
@@ -652,7 +712,7 @@ function render(){
       const hid=isHid(s.id);
       const r=document.createElement("div"); r.className="r"+(hid?" hid":"");
       const lab=document.createElement("div"); lab.className="rowlabel";
-      lab.innerHTML='<span class="agetag">'+s.age+'+</span><span><span class="skname">'+esc(s.name)+'</span>'+
+      lab.innerHTML='<span class="agetag'+(isEdited(s.id)?" ed":"")+'" title="'+(isEdited(s.id)?"Age changed from "+baseOf(s.id).age:"")+'">'+s.age+'+</span><span><span class="skname">'+esc(s.name)+'</span>'+
         (s.note?'<span class="sknote">'+esc(s.note)+'</span>':'')+'</span>';
       const saved=vidOf(s.id);
       const vb=document.createElement("button");
@@ -663,10 +723,11 @@ function render(){
       vb.onclick=()=>window.open(saved||vidSearch(s),"_blank","noopener,noreferrer");
       lab.appendChild(vb);
       const eb=document.createElement("button");
-      eb.className="vidbtn"; eb.textContent="link";
-      eb.setAttribute("aria-label","Set the walkthrough link for "+s.name);
-      eb.title="Pin a specific video to this skill";
-      eb.onclick=()=>vidOpen(s);
+      eb.className="vidbtn"+(isEdited(s.id)?" has":"");
+      eb.textContent="edit";
+      eb.setAttribute("aria-label","Edit "+s.name);
+      eb.title=isEdited(s.id)?"Changed from the built-in board — click to edit or reset":"Change the age, name, note, or video";
+      eb.onclick=()=>editOpen(s);
       lab.appendChild(eb);
       const hb=document.createElement("button");
       hb.className="hidebtn"; hb.textContent=hid?"restore":"hide";
@@ -769,14 +830,22 @@ $("cAdd").onclick=()=>{
   $("cName").value=""; $("cNote").value="";
   save(); render();
 };
-$("vSave").onclick=()=>{
-  const u=vidClean($("vUrl").value);
-  if(u===null){ $("vMsg").textContent="Needs a full http:// or https:// link."; return; }
-  vidSet(u);
+$("eSave").onclick=editSave;
+$("eRevert").onclick=editRevert;
+$("eClose").onclick=editClose;
+["eAge","eTitle","eNote","eUrl"].forEach(id=>{
+  $(id).onkeydown=e=>{ if(e.key==="Enter") editSave(); if(e.key==="Escape") editClose(); };
+});
+$("bReset").onclick=e=>{
+  const b=e.target, n=Object.keys(S.edits||{}).length;
+  if(!n) return;
+  if(b.dataset.armed){
+    delete b.dataset.armed; b.classList.remove("warn");
+    S.edits={}; save(); render(); return;
+  }
+  b.dataset.armed="1"; b.textContent="Reset all "+n+"?"; b.classList.add("warn");
+  setTimeout(()=>{ if(b.isConnected&&b.dataset.armed){delete b.dataset.armed;b.classList.remove("warn");render();} },5000);
 };
-$("vClear").onclick=()=>{ $("vUrl").value=""; vidSet(""); };
-$("vClose").onclick=()=>{ $("pVid").classList.add("hidden"); vidFor=null; };
-$("vUrl").onkeydown=e=>{ if(e.key==="Enter") $("vSave").click(); };
 $("fDomain").onchange=e=>{ filter.dom=e.target.value; render(); };
 $("fEligible").onclick=e=>{ filter.eligible=!filter.eligible; e.target.classList.toggle("on",filter.eligible); render(); };
 $("fOpen").onclick=e=>{ filter.open=!filter.open; e.target.classList.toggle("on",filter.open); render(); };
@@ -792,7 +861,7 @@ $("fileIn").onchange=e=>{
   const r=new FileReader();
   r.onload=()=>{ try{ const o=JSON.parse(r.result);
     if(!o.kids) throw 0;
-    S={kids:o.kids||[],status:o.status||{},custom:o.custom||[],hidden:o.hidden||[],vids:o.vids||{}};
+    S={kids:o.kids||[],status:o.status||{},custom:o.custom||[],hidden:o.hidden||[],vids:o.vids||{},edits:o.edits||{}};
     save(); renderKids(); render();
   }catch(err){ $("saveState").textContent="That file isn't a Skills Board export."; } };
   r.readAsText(f); e.target.value="";
@@ -810,7 +879,7 @@ if("serviceWorker" in navigator && location.protocol==="https:"){
 
 (async()=>{
   const saved=await store.get();
-  if(saved) S={kids:saved.kids||[],status:saved.status||{},custom:saved.custom||[],hidden:saved.hidden||[],vids:saved.vids||{}};
+  if(saved) S={kids:saved.kids||[],status:saved.status||{},custom:saved.custom||[],hidden:saved.hidden||[],vids:saved.vids||{},edits:saved.edits||{}};
   render();
 })();
 </script>
