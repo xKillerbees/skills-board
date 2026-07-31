@@ -121,7 +121,7 @@ h1 span{display:block;font-size:13px;letter-spacing:.34em;color:var(--muted);fon
 .btn:hover{background:var(--ink-2);border-color:var(--paper)}
 .btn.on{background:var(--chalk);border-color:var(--chalk);color:var(--ink)}
 .spacer{flex:1}
-select,input[type=text],input[type=date],input[type=number],textarea{
+select,input[type=text],input[type=date],input[type=number],input[type=search],textarea{
   font-family:var(--sans);font-size:14px;background:var(--ink-2);color:var(--paper);
   border:1px solid var(--line-hard);padding:6px 9px;
 }
@@ -195,6 +195,8 @@ option{background:var(--ink-2);color:var(--paper)}
 .domcode{font-family:var(--mono);font-size:11px;color:var(--chalk);letter-spacing:.1em}
 .domname{font-family:var(--cond);font-size:19px;letter-spacing:.16em;text-transform:uppercase}
 .domcount{font-family:var(--mono);font-size:11px;color:var(--muted-dim);margin-left:auto}
+.domtrack{flex:0 0 84px;height:5px;background:var(--track);margin-left:auto;align-self:center}
+.domtrack+.domcount{margin-left:9px}
 
 .r{display:contents}
 .r > *{border-top:1px solid var(--line)}
@@ -233,6 +235,15 @@ h2{font-family:var(--cond);font-size:22px;letter-spacing:.2em;text-transform:upp
 .qvid:hover{color:var(--chalk)}
 .qvid.has{color:var(--chalk)}
 .qvid+.qwait{margin-left:6px}
+.qtotal{display:flex;align-items:center;gap:9px;padding:10px 14px 2px;font-family:var(--mono);font-size:10px;color:var(--muted-dim)}
+.qtotal .track{height:6px}
+
+/* ---------- lately ---------- */
+.latelyrow{display:flex;align-items:baseline;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+.latelyrow:first-child{border-top:0}
+.latelyrow .who{font-family:var(--cond);font-size:14px;letter-spacing:.08em;text-transform:uppercase;flex:0 0 auto;min-width:64px}
+.latelyrow .what{font-size:13.5px;min-width:0}
+.latelyrow .when{font-family:var(--mono);font-size:11px;color:var(--muted-dim);margin-left:auto;flex:0 0 auto}
 .bars{padding:10px 14px 13px}
 .bar-row{display:flex;align-items:center;gap:8px;margin-top:4px;font-family:var(--mono);font-size:10px;color:var(--muted-dim)}
 .bar-row .t{flex:0 0 34px;letter-spacing:.06em}
@@ -293,6 +304,36 @@ footer{border-top:1px solid var(--line);margin-top:40px;padding-top:14px;font-fa
   .panel{padding:12px}
   .fields input[type=text]{flex:1 1 100%}
 }
+
+/* ---------- print: a checklist for the fridge ---------- */
+@media print{
+  :root{
+    --ink:#fff;--ink-2:#fff;--ink-3:#fff;
+    --line:#c4c4c4;--line-hard:#777;
+    --paper:#000;--muted:#333;--muted-dim:#444;
+    --chalk:#000;--pencil:#000;
+    --surface:#fff;--surface-2:#eee;--surface-3:#fff;--track:#ddd;
+    color-scheme:light;
+  }
+  body{background:none;color:#000;padding:0;font-size:10.5pt}
+  .bar,.legend,.panel,footer,#upnext,#lately,.hidebtn,.vidbtn,.domtrack{display:none!important}
+  .wrap{max-width:none;padding:0}
+  header{padding-top:0}
+  .matrix{overflow:visible;border-color:#777}
+  .grid{width:100%!important;min-width:0}
+  .hdr{position:static}
+  /* Keep a skill and its boxes on one page. */
+  .r>*,.domrow,.q{break-inside:avoid;page-break-inside:avoid}
+  .domrow{break-after:avoid;page-break-after:avoid}
+  /* Notes are hidden on small screens; on paper there is room for them. */
+  .sknote{display:block!important;max-width:none;color:#444}
+  .cell{border:1px solid #333;width:16px;height:16px}
+  .cell.s2{background:#000;border-color:#000}
+  .cell.s1{background:linear-gradient(135deg,#000 0 50%,#fff 50% 100%);border-color:#000}
+  .cell.locked{border-style:dashed;opacity:.45}
+  .cell.due{box-shadow:none}
+  a{color:#000;text-decoration:none}
+}
 </style>
 
 <script>
@@ -315,6 +356,7 @@ try{var t0=localStorage.getItem("skills-board-theme");if(t0)document.documentEle
 </header>
 
 <div class="bar">
+  <input type="search" id="fSearch" placeholder="Search skills" size="14" aria-label="Search skills">
   <select id="fDomain"><option value="">All areas</option></select>
   <button class="btn" id="fEligible">Age-ready only</button>
   <button class="btn" id="fOpen">Hide signed off</button>
@@ -393,9 +435,17 @@ try{var t0=localStorage.getItem("skills-board-theme");if(t0)document.documentEle
 
 <div class="matrix"><div class="grid" id="grid"></div></div>
 
+<section id="upnext">
 <h2>Up next</h2>
 <p class="sub">Oldest unmet skill first. These are the ones each kid is already old enough for.</p>
 <div class="queues" id="queues"></div>
+</section>
+
+<section id="lately" class="hidden">
+<h2>Lately</h2>
+<p class="sub">The most recent sign-offs, newest first.</p>
+<div id="latelyList"></div>
+</section>
 
 <footer>
   <span>Click a box to cycle: not started &rarr; working on it &rarr; signed off.</span>
@@ -666,7 +716,7 @@ const store={
 
 /* ============================ state ============================ */
 let S={kids:[],status:{},custom:[],hidden:[],vids:{},edits:{},doms:[],theme:THEME_DEFAULT};
-let filter={dom:"",eligible:false,open:false,showHidden:false};
+let filter={dom:"",eligible:false,open:false,showHidden:false,q:""};
 const $=id=>document.getElementById(id);
 const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>new Date().toISOString().slice(0,10);
@@ -816,6 +866,7 @@ function render(){
   const nEd=Object.keys(S.edits||{}).length;
   if(!$("bReset").dataset.armed) $("bReset").textContent=nEd?"Reset edits "+nEd:"Reset edits";
   $("bReset").disabled=!nEd;
+  renderLately(allSkills(true));
 
   const grid=$("grid");
   grid.innerHTML="";
@@ -844,6 +895,7 @@ function render(){
     if(filter.dom&&filter.dom!==d.k) return;
     let rows=doms[d.k]||[];
     rows=rows.filter(s=>{
+      if(filter.q&&(s.name+" "+(s.note||"")).toLowerCase().indexOf(filter.q)<0) return false;
       if(filter.eligible&&!kids.some(k=>{const a=ageOf(k);return a!==null&&a>=s.age})) return false;
       if(filter.open&&kids.every(k=>stat(k.id,s.id)===2)) return false;
       return true;
@@ -855,10 +907,12 @@ function render(){
     let got=0; vis.forEach(s=>kids.forEach(k=>{if(stat(k.id,s.id)===2)got++}));
     const dr=document.createElement("div"); dr.className="domrow";
     // textContent, not innerHTML: category names are user-supplied.
-    dr.innerHTML='<span class="domcode"></span><span class="domname"></span><span class="domcount"></span>';
+    dr.innerHTML='<span class="domcode"></span><span class="domname"></span>'+
+                 '<span class="domtrack"><span class="fill"></span></span><span class="domcount"></span>';
     dr.children[0].textContent=domCode(d);
     dr.children[1].textContent=domName(d);
-    dr.children[2].textContent=got+'/'+total;
+    dr.children[2].firstElementChild.style.width=(total?Math.round(got/total*100):0)+'%';
+    dr.children[3].textContent=got+'/'+total;
     grid.appendChild(dr);
 
     rows.forEach(s=>{
@@ -908,7 +962,52 @@ function render(){
     });
   });
 
+  // Only the header row means every skill was filtered out.
+  if(grid.children.length<=1){
+    const e=document.createElement("div");
+    e.style.cssText="grid-column:1/-1;padding:26px 14px;text-align:center;color:var(--muted)";
+    e.textContent=filter.q?('Nothing matches "'+filter.q+'".'):"Nothing matches those filters.";
+    grid.appendChild(e);
+  }
+
   renderQueues(skills);
+}
+
+function ago(d){
+  const then=new Date(d+"T00:00:00"), n=new Date();
+  const days=Math.round((new Date(n.getFullYear(),n.getMonth(),n.getDate())-then)/86400000);
+  if(days<=0) return "today";
+  if(days===1) return "yesterday";
+  if(days<7) return days+" days ago";
+  if(days<14) return "1 week ago";
+  if(days<60) return Math.round(days/7)+" weeks ago";
+  if(days<365) return Math.round(days/30)+" months ago";
+  return Math.round(days/365)+"y ago";
+}
+
+// The sign-off date was already being stored; this surfaces it.
+function renderLately(skills){
+  const sec=$("lately"), list=$("latelyList");
+  const byId={}; skills.forEach(s=>byId[s.id]=s);
+  const items=[];
+  S.kids.forEach(k=>{
+    const st=S.status[k.id]||{};
+    Object.keys(st).forEach(id=>{
+      const rec=st[id];
+      if(rec&&rec.v===2&&rec.d&&byId[id]) items.push({kid:k.name,name:byId[id].name,d:rec.d});
+    });
+  });
+  if(!items.length){ sec.classList.add("hidden"); return; }
+  items.sort((a,b)=>a.d<b.d?1:(a.d>b.d?-1:0));
+  sec.classList.remove("hidden");
+  list.innerHTML="";
+  items.slice(0,8).forEach(it=>{
+    const row=document.createElement("div"); row.className="latelyrow";
+    const w=document.createElement("span"); w.className="who";  w.textContent=it.kid;
+    const n=document.createElement("span"); n.className="what"; n.textContent=it.name;
+    const t=document.createElement("span"); t.className="when"; t.textContent=ago(it.d);
+    row.appendChild(w); row.appendChild(n); row.appendChild(t); list.appendChild(row);
+  });
 }
 
 function renderQueues(skills){
@@ -919,7 +1018,9 @@ function renderQueues(skills){
     const open=eligible.filter(s=>stat(k.id,s.id)===0).sort((x,y)=>x.age-y.age).slice(0,6);
     const doneN=eligible.filter(s=>stat(k.id,s.id)===2).length;
     const el=document.createElement("div"); el.className="q";
-    let html='<header><h3>'+esc(k.name)+'</h3><span class="meta">age '+(a??"?")+' · '+doneN+'/'+eligible.length+'</span></header>';
+    const pct=eligible.length?Math.round(doneN/eligible.length*100):0;
+    let html='<header><h3>'+esc(k.name)+'</h3><span class="meta">age '+(a??"?")+' · '+doneN+'/'+eligible.length+'</span></header>'+
+             '<div class="qtotal"><span class="track"><span class="fill" style="width:'+pct+'%"></span></span><span>'+pct+'%</span></div>';
     if(!open.length) html+='<div class="qitem"><span class="qtext">Nothing waiting. Everything they\'re old enough for is started or signed off.</span></div>';
     open.forEach(s=>{
       const late=a-s.age;
@@ -1057,6 +1158,7 @@ $("bReset").onclick=e=>{
   b.dataset.armed="1"; b.textContent="Reset all "+n+"?"; b.classList.add("warn");
   setTimeout(()=>{ if(b.isConnected&&b.dataset.armed){delete b.dataset.armed;b.classList.remove("warn");render();} },5000);
 };
+$("fSearch").oninput=e=>{ filter.q=e.target.value.trim().toLowerCase(); render(); };
 $("fDomain").onchange=e=>{ filter.dom=e.target.value; render(); };
 $("fEligible").onclick=e=>{ filter.eligible=!filter.eligible; e.target.classList.toggle("on",filter.eligible); render(); };
 $("fOpen").onclick=e=>{ filter.open=!filter.open; e.target.classList.toggle("on",filter.open); render(); };
