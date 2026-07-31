@@ -346,6 +346,16 @@ try{var t0=localStorage.getItem("skills-board-theme");if(t0)document.documentEle
     <button class="btn" id="cAdd">Add</button>
     <span id="cMsg" class="msg"></span>
   </div>
+
+  <h3 style="margin-top:20px">Your own categories</h3>
+  <div id="domList"></div>
+  <div class="fields" style="margin-top:10px">
+    <input type="text" id="dName" placeholder="Category name" size="26" aria-label="Category name">
+    <input type="text" id="dCode" placeholder="Code" size="4" maxlength="4" style="width:74px" aria-label="Short code">
+    <button class="btn" id="dAdd">Add category</button>
+    <span id="dMsg" class="msg"></span>
+  </div>
+  <p class="hint">Categories of your own sit below the built-in ones and work the same way &mdash; add skills to them above, and each gets its own progress bar. Leave the code blank and one is made from the name. Removing a category also removes the skills inside it.</p>
 </div>
 
 <div class="panel hidden" id="pEdit">
@@ -647,7 +657,7 @@ const store={
 };
 
 /* ============================ state ============================ */
-let S={kids:[],status:{},custom:[],hidden:[],vids:{},edits:{},theme:THEME_DEFAULT};
+let S={kids:[],status:{},custom:[],hidden:[],vids:{},edits:{},doms:[],theme:THEME_DEFAULT};
 let filter={dom:"",eligible:false,open:false,showHidden:false};
 const $=id=>document.getElementById(id);
 const uid=()=>Math.random().toString(36).slice(2,9);
@@ -662,6 +672,24 @@ function ageOf(kid){
   return a;
 }
 const isHid=id=>S.hidden.indexOf(id)>-1;
+/* Custom categories live in S.doms. Their key is a generated "U…" id that never
+   changes, so renaming one can't orphan the skills pointing at it; the short
+   code shown on the board is a separate, editable field. */
+const allDomains=()=>DOMAINS.concat(S.doms||[]);
+const domName=d=>String(d.n).replace(/&amp;/g,"&");   // built-ins carry the entity
+const domCode=d=>d.c||d.k;
+function makeCode(name){
+  const w=name.trim().toUpperCase().replace(/[^A-Z0-9 ]+/g," ").split(/\s+/).filter(Boolean);
+  const c=w.length>1 ? w.slice(0,3).map(x=>x[0]).join("") : (w[0]||"CAT").slice(0,3);
+  return (c||"CAT").slice(0,4);
+}
+function uniqueCode(base){
+  const taken=new Set(allDomains().map(domCode));
+  if(!taken.has(base)) return base;
+  for(let i=2;i<100;i++){ const t=base.slice(0,3)+i; if(!taken.has(t)) return t; }
+  return base.slice(0,3)+Math.floor(Math.random()*9);
+}
+
 // The catalog stays the source of truth; user changes are an overlay keyed by
 // skill id, so resetting one is just dropping its key. Never edit DOMAINS.
 function baseSkills(){
@@ -686,7 +714,7 @@ function allSkills(inclHidden){
   return inclHidden?out:out.filter(s=>!isHid(s.id));
 }
 function byDomain(inclHidden){
-  const m={}; DOMAINS.forEach(d=>m[d.k]=[]);
+  const m={}; allDomains().forEach(d=>m[d.k]=[]);
   allSkills(inclHidden).forEach(s=>{(m[s.dom]=m[s.dom]||[]).push(s)});
   Object.values(m).forEach(a=>a.sort((x,y)=>x.age-y.age));
   return m;
@@ -804,7 +832,7 @@ function render(){
   });
   grid.appendChild(h);
 
-  DOMAINS.forEach(d=>{
+  allDomains().forEach(d=>{
     if(filter.dom&&filter.dom!==d.k) return;
     let rows=doms[d.k]||[];
     rows=rows.filter(s=>{
@@ -818,8 +846,11 @@ function render(){
     const total=vis.length*kids.length;
     let got=0; vis.forEach(s=>kids.forEach(k=>{if(stat(k.id,s.id)===2)got++}));
     const dr=document.createElement("div"); dr.className="domrow";
-    dr.innerHTML='<span class="domcode">'+d.k+'</span><span class="domname">'+d.n+'</span>'+
-                 '<span class="domcount">'+got+'/'+total+'</span>';
+    // textContent, not innerHTML: category names are user-supplied.
+    dr.innerHTML='<span class="domcode"></span><span class="domname"></span><span class="domcount"></span>';
+    dr.children[0].textContent=domCode(d);
+    dr.children[1].textContent=domName(d);
+    dr.children[2].textContent=got+'/'+total;
     grid.appendChild(dr);
 
     rows.forEach(s=>{
@@ -889,11 +920,11 @@ function renderQueues(skills){
             (late>=2?'<span class="qwait">'+late+'y</span>':'')+'</div>';
     });
     html+='<div class="bars">';
-    DOMAINS.forEach(d=>{
+    allDomains().forEach(d=>{
       const es=skills.filter(s=>s.dom===d.k&&a!==null&&a>=s.age);
       if(!es.length) return;
       const dn=es.filter(s=>stat(k.id,s.id)===2).length;
-      html+='<div class="bar-row"><span class="t">'+d.k+'</span><span class="track"><span class="fill" style="width:'+
+      html+='<div class="bar-row"><span class="t">'+esc(domCode(d))+'</span><span class="track"><span class="fill" style="width:'+
             Math.round(dn/es.length*100)+'%"></span></span><span>'+dn+'/'+es.length+'</span></div>';
     });
     html+='</div>';
@@ -927,7 +958,58 @@ function renderKids(){
 /* ============================ wiring ============================ */
 function toggle(id){ $(id).classList.toggle("hidden"); }
 $("bKids").onclick=()=>{ toggle("pKids"); renderKids(); };
-$("bAdd").onclick=()=>toggle("pAdd");
+$("bAdd").onclick=()=>{ toggle("pAdd"); renderDoms(); };
+
+function renderDoms(){
+  const l=$("domList"); l.innerHTML="";
+  const list=S.doms||[];
+  if(!list.length){ l.innerHTML='<p class="hint" style="margin:0">None yet. Anything works &mdash; classic games by system, build a PC, first Minecraft mod.</p>'; return; }
+  list.forEach(d=>{
+    const own=S.custom.filter(s=>s.dom===d.k);
+    const n=own.length;
+    const el=document.createElement("div"); el.className="kidchip";
+    const nm=document.createElement("span"); nm.className="nm"; nm.textContent=d.n;
+    const dt=document.createElement("span"); dt.className="dt"; dt.textContent=domCode(d)+" · "+n+" skill"+(n===1?"":"s");
+    const b=document.createElement("button"); b.textContent="Remove";
+    b.onclick=()=>{
+      if(b.dataset.armed){
+        const ids=own.map(s=>s.id);
+        S.doms=S.doms.filter(x=>x.k!==d.k);
+        S.custom=S.custom.filter(s=>s.dom!==d.k);
+        ids.forEach(id=>{
+          Object.keys(S.status).forEach(kid=>{ if(S.status[kid]) delete S.status[kid][id]; });
+          if(S.vids) delete S.vids[id];
+          if(S.edits) delete S.edits[id];
+        });
+        S.hidden=S.hidden.filter(x=>ids.indexOf(x)<0);
+        if(filter.dom===d.k){ filter.dom=""; }
+        save(); refreshDomainSelects(); renderDoms(); render(); return;
+      }
+      l.querySelectorAll("button[data-armed]").forEach(o=>{delete o.dataset.armed;o.textContent="Remove";o.classList.remove("warn")});
+      b.dataset.armed="1";
+      b.textContent=n?("Remove + "+n+" skill"+(n===1?"":"s")+"?"):"Remove for good?";
+      b.classList.add("warn");
+      setTimeout(()=>{ if(b.isConnected&&b.dataset.armed){delete b.dataset.armed;b.textContent="Remove";b.classList.remove("warn")} },5000);
+    };
+    el.appendChild(nm); el.appendChild(dt); el.appendChild(b); l.appendChild(el);
+  });
+}
+
+$("dAdd").onclick=()=>{
+  const n=$("dName").value.trim();
+  if(!n){ $("dMsg").textContent="Give the category a name."; return; }
+  if(allDomains().some(d=>domName(d).toLowerCase()===n.toLowerCase())){
+    $("dMsg").textContent="You already have a category with that name."; return;
+  }
+  const typed=$("dCode").value.trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
+  const code=uniqueCode((typed||makeCode(n)).slice(0,4));
+  S.doms=S.doms||[];
+  S.doms.push({k:"U"+uid(),n:n,c:code});
+  $("dName").value=""; $("dCode").value=""; $("dMsg").textContent="";
+  save(); refreshDomainSelects(); renderDoms(); render();
+};
+$("dName").onkeydown=e=>{ if(e.key==="Enter") $("dAdd").click(); };
+$("dCode").onkeydown=e=>{ if(e.key==="Enter") $("dAdd").click(); };
 $("kAdd").onclick=()=>{
   const n=$("kName").value.trim(), d=$("kDob").value;
   if(!n||!d){ $("kMsg").textContent="Name and birthdate are both required."; return; }
@@ -975,18 +1057,28 @@ $("fileIn").onchange=e=>{
   const r=new FileReader();
   r.onload=()=>{ try{ const o=JSON.parse(r.result);
     if(!o.kids) throw 0;
-    S={kids:o.kids||[],status:o.status||{},custom:o.custom||[],hidden:o.hidden||[],vids:o.vids||{},edits:o.edits||{},theme:o.theme||THEME_DEFAULT};
+    S={kids:o.kids||[],status:o.status||{},custom:o.custom||[],hidden:o.hidden||[],vids:o.vids||{},edits:o.edits||{},doms:o.doms||[],theme:o.theme||THEME_DEFAULT};
     S.theme=applyTheme(S.theme);
+    refreshDomainSelects();
     save(); renderKids(); render();
   }catch(err){ $("saveState").textContent="That file isn't a Skills Board export."; } };
   r.readAsText(f); e.target.value="";
 };
 
-DOMAINS.forEach(d=>{
-  const t=d.n.replace(/&amp;/g,"&");
-  $("fDomain").insertAdjacentHTML("beforeend",'<option value="'+d.k+'">'+t+'</option>');
-  $("cDomain").insertAdjacentHTML("beforeend",'<option value="'+d.k+'">'+t+'</option>');
-});
+// Rebuilt whenever categories change. new Option() sets text safely.
+function refreshDomainSelects(){
+  const f=$("fDomain"), c=$("cDomain");
+  const fv=f.value, cv=c.value;
+  f.innerHTML=""; c.innerHTML="";
+  f.appendChild(new Option("All areas",""));
+  allDomains().forEach(d=>{
+    f.appendChild(new Option(domName(d),d.k));
+    c.appendChild(new Option(domName(d),d.k));
+  });
+  f.value=allDomains().some(d=>d.k===fv)?fv:"";
+  c.value=allDomains().some(d=>d.k===cv)?cv:(allDomains()[0]||{}).k;
+}
+refreshDomainSelects();
 
 THEMES.forEach(t=>$("fTheme").insertAdjacentHTML("beforeend",'<option value="'+t.k+'">'+t.n+'</option>'));
 $("fTheme").value=applyTheme((()=>{ try{return localStorage.getItem("skills-board-theme")||THEME_DEFAULT}catch(e){return THEME_DEFAULT} })());
@@ -998,8 +1090,9 @@ if("serviceWorker" in navigator && location.protocol==="https:"){
 
 (async()=>{
   const saved=await store.get();
-  if(saved) S={kids:saved.kids||[],status:saved.status||{},custom:saved.custom||[],hidden:saved.hidden||[],vids:saved.vids||{},edits:saved.edits||{},theme:saved.theme||THEME_DEFAULT};
+  if(saved) S={kids:saved.kids||[],status:saved.status||{},custom:saved.custom||[],hidden:saved.hidden||[],vids:saved.vids||{},edits:saved.edits||{},doms:saved.doms||[],theme:saved.theme||THEME_DEFAULT};
   S.theme=applyTheme(S.theme);
+  refreshDomainSelects();
   render();
 })();
 </script>
