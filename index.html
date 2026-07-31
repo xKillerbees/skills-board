@@ -132,7 +132,11 @@ select{font-family:var(--cond);letter-spacing:.06em;text-transform:uppercase;fon
   font-family:var(--cond);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
   color:var(--muted-dim);padding:0 9px;display:flex;align-items:center;background:var(--ink-2);
 }
-.selgroup select{border:0;border-left:1px solid var(--line-hard);background:none}
+/* Keep a real background here: a transparent select makes the native dropdown
+   popup fall back to the system white, leaving --paper text unreadable. */
+.selgroup select{border:0;border-left:1px solid var(--line-hard);background:var(--ink-2)}
+/* The popup is drawn by the OS and does not inherit the select's colours. */
+option{background:var(--ink-2);color:var(--paper)}
 
 /* ---------- matrix ---------- */
 .legend{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--muted);padding:0 0 12px;font-family:var(--mono)}
